@@ -27,9 +27,11 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   onDeleteDebt
 }) => {
   const [showSimulator, setShowSimulator] = useState(false);
+  const [simMode, setSimMode] = useState<'extra' | 'full'>('extra');
+  const [extraPaymentAmount, setExtraPaymentAmount] = useState<number>(0);
   const [simulationDiscount, setSimulationDiscount] = useState(100); // Default to 100% discount on interest for early payoff
   const [anticipateInstallment, setAnticipateInstallment] = useState<DebtInstallment | null>(null);
-  const [anticipateAmount, setAnticipateAmount] = useState<string>('');
+  const [anticipateAmount, setAnticipateAmount] = useState<number>(0);
 
   const stats = useMemo(() => {
     if (!debt) return null;
@@ -45,14 +47,51 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
 
   const simulation = useMemo(() => {
     if (!debt || !showSimulator) return null;
-    const unpaid = debt.installments.filter(i => i.status !== TransactionStatus.COMPLETED);
-    const totalPrincipal = unpaid.reduce((acc, i) => acc + i.principal, 0);
-    const totalInterest = unpaid.reduce((acc, i) => acc + i.interest, 0);
-    const discountedInterest = totalInterest * (1 - simulationDiscount / 100);
-    const finalAmount = totalPrincipal + discountedInterest;
+    const unpaid = [...debt.installments]
+      .filter(i => i.status !== TransactionStatus.COMPLETED)
+      .sort((a, b) => a.number - b.number);
 
-    return { totalPrincipal, totalInterest, discountedInterest, finalAmount, savings: totalInterest - discountedInterest };
-  }, [debt, showSimulator, simulationDiscount]);
+    if (simMode === 'full') {
+      const totalPrincipal = unpaid.reduce((acc, i) => acc + i.principal, 0);
+      const totalInterest = unpaid.reduce((acc, i) => acc + i.interest, 0);
+      const discountedInterest = totalInterest * (1 - simulationDiscount / 100);
+      const finalAmount = totalPrincipal + discountedInterest;
+      return { 
+        totalPrincipal, 
+        totalInterest, 
+        discountedInterest, 
+        finalAmount, 
+        savings: totalInterest - discountedInterest,
+        mode: 'full' as const
+      };
+    } else {
+      // Extra Payment Logic: Amortize from the end (term reduction)
+      const unpaidReversed = [...unpaid].reverse();
+      let remainingAmount = extraPaymentAmount;
+      let installmentsAbated = 0;
+      let totalInterestSaved = 0;
+      const abatedItems: { id: string, principal: number }[] = [];
+
+      for (const inst of unpaidReversed) {
+        if (remainingAmount >= inst.principal) {
+          remainingAmount -= inst.principal;
+          installmentsAbated++;
+          totalInterestSaved += inst.interest;
+          abatedItems.push({ id: inst.id, principal: inst.principal });
+        } else {
+          break;
+        }
+      }
+
+      return {
+        installmentsAbated,
+        totalInterestSaved,
+        remainingAmount,
+        abatedItems,
+        mode: 'extra' as const
+      };
+    }
+  }, [debt, showSimulator, simMode, simulationDiscount, extraPaymentAmount]);
 
   if (!isOpen || !debt) return null;
 
@@ -182,57 +221,136 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
               >
                 <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-indigo-900">Simulação de Quitação Antecipada</h3>
+                    <h3 className="font-bold text-indigo-900">Simulador de Quitação</h3>
                     <TrendingDown className="text-indigo-400" size={20} />
                   </div>
-                  <p className="text-xs text-indigo-700">
-                    Ao quitar antecipadamente, você pode economizar nos juros. Ajuste o desconto esperado sobre os juros futuros:
-                  </p>
+
+                  {/* Tabs */}
+                  <div className="flex bg-indigo-100/50 p-1 rounded-xl">
+                    <button 
+                      onClick={() => setSimMode('extra')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${simMode === 'extra' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-400 hover:text-indigo-600'}`}
+                    >
+                      Pagamento Extra
+                    </button>
+                    <button 
+                      onClick={() => setSimMode('full')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${simMode === 'full' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-400 hover:text-indigo-600'}`}
+                    >
+                      Quitar Tudo
+                    </button>
+                  </div>
                   
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs font-bold text-indigo-900">
-                      <span>Desconto nos Juros</span>
-                      <span>{simulationDiscount}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="100" 
-                      value={simulationDiscount}
-                      onChange={e => setSimulationDiscount(parseInt(e.target.value))}
-                      className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                    />
-                  </div>
+                  {simMode === 'extra' ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-indigo-900 font-bold uppercase tracking-wider">Valor que deseja pagar</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 font-bold text-sm">R$</span>
+                          <input 
+                            type="text" 
+                            value={new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(extraPaymentAmount)}
+                            onChange={e => {
+                              const raw = e.target.value.replace(/\D/g, '');
+                              setExtraPaymentAmount(parseInt(raw || '0') / 100);
+                            }}
+                            className="w-full pl-12 pr-4 py-3 bg-white border border-indigo-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-indigo-900"
+                          />
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="bg-white p-3 rounded-xl border border-indigo-100">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Principal</p>
-                      <p className="text-sm font-bold text-slate-800">{formatCurrency(simulation?.totalPrincipal || 0)}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-xl border border-indigo-100">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Juros com Desconto</p>
-                      <p className="text-sm font-bold text-slate-800">{formatCurrency(simulation?.discountedInterest || 0)}</p>
-                    </div>
-                  </div>
+                      {simulation?.mode === 'extra' && simulation.installmentsAbated > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-indigo-600 p-4 rounded-2xl text-white space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Parcelas Abatidas</p>
+                              <p className="text-xl font-bold">{simulation.installmentsAbated} parcelas</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Economia em Juros</p>
+                              <p className="text-lg font-bold text-emerald-300">{formatCurrency(simulation.totalInterestSaved)}</p>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-white/10 text-[10px] opacity-80 italic">
+                            * As parcelas serão abatidas do final para o início (redução de prazo).
+                          </div>
+                        </motion.div>
+                      )}
 
-                  <div className="bg-indigo-600 p-4 rounded-2xl text-white flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Valor para Quitar Hoje</p>
-                      <p className="text-xl font-bold">{formatCurrency(simulation?.finalAmount || 0)}</p>
+                      <button 
+                        disabled={!simulation || simulation.mode !== 'extra' || simulation.installmentsAbated === 0}
+                        onClick={() => {
+                          if (simulation?.mode === 'extra' && simulation.abatedItems.length > 0) {
+                            if (window.confirm(`Confirmar o abatimento de ${simulation.installmentsAbated} parcelas?`)) {
+                              simulation.abatedItems.forEach(item => {
+                                onUpdateInstallment(debt.id, item.id, TransactionStatus.COMPLETED, item.principal);
+                              });
+                              setExtraPaymentAmount(0);
+                            }
+                          }
+                        }}
+                        className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-50 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <CheckCircle2 size={18} />
+                        Confirmar Abatimento
+                      </button>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Economia</p>
-                      <p className="text-lg font-bold text-emerald-300">-{formatCurrency(simulation?.savings || 0)}</p>
-                    </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-xs text-indigo-700">
+                        Ajuste o desconto esperado sobre os juros futuros para quitação total:
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-bold text-indigo-900">
+                          <span>Desconto nos Juros</span>
+                          <span>{simulationDiscount}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="100" 
+                          value={simulationDiscount}
+                          onChange={e => setSimulationDiscount(parseInt(e.target.value))}
+                          className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                        />
+                      </div>
 
-                  <button 
-                    onClick={() => onPayoffDebt(debt.id, simulationDiscount)}
-                    className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-50 transition-all shadow-sm flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 size={18} />
-                    Confirmar Quitação de Todas as Parcelas
-                  </button>
+                      <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="bg-white p-3 rounded-xl border border-indigo-100">
+                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Principal</p>
+                          <p className="text-sm font-bold text-slate-800">{formatCurrency(simulation?.mode === 'full' ? simulation.totalPrincipal : 0)}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-indigo-100">
+                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Juros com Desconto</p>
+                          <p className="text-sm font-bold text-slate-800">{formatCurrency(simulation?.mode === 'full' ? simulation.discountedInterest : 0)}</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-indigo-600 p-4 rounded-2xl text-white flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Valor para Quitar Hoje</p>
+                          <p className="text-xl font-bold">{formatCurrency(simulation?.mode === 'full' ? simulation.finalAmount : 0)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Economia</p>
+                          <p className="text-lg font-bold text-emerald-300">-{formatCurrency(simulation?.mode === 'full' ? simulation.savings : 0)}</p>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => onPayoffDebt(debt.id, simulationDiscount)}
+                        className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-50 transition-all shadow-sm flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 size={18} />
+                        Confirmar Quitação Total
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -252,7 +370,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   onToggle={() => onUpdateInstallment(debt.id, inst.id, inst.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED)}
                   onEarlyPay={() => {
                     setAnticipateInstallment(inst);
-                    setAnticipateAmount(inst.principal.toString());
+                    setAnticipateAmount(inst.principal);
                   }}
                 />
               ))}
@@ -282,11 +400,13 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
                     <input 
-                      type="number" 
-                      step="0.01"
+                      type="text" 
                       autoFocus
-                      value={anticipateAmount}
-                      onChange={e => setAnticipateAmount(e.target.value)}
+                      value={new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(anticipateAmount)}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        setAnticipateAmount(parseInt(raw || '0') / 100);
+                      }}
                       className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-700"
                     />
                   </div>
@@ -304,9 +424,8 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   </button>
                   <button 
                     onClick={() => {
-                      const amount = parseFloat(anticipateAmount);
-                      if (!isNaN(amount)) {
-                        onUpdateInstallment(debt.id, anticipateInstallment.id, TransactionStatus.COMPLETED, amount);
+                      if (anticipateAmount > 0) {
+                        onUpdateInstallment(debt.id, anticipateInstallment.id, TransactionStatus.COMPLETED, anticipateAmount);
                         setAnticipateInstallment(null);
                       }
                     }}
