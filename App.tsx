@@ -227,7 +227,7 @@ function App() {
         date: new Date().toISOString(),
         type: defaultType,
         category: defaultCategory,
-        status: TransactionStatus.COMPLETED,
+        status: defaultType === TransactionType.CARD_EXPENSE ? TransactionStatus.PENDING : TransactionStatus.COMPLETED,
         cardId: defaultCardId
       });
       setIsTxModalOpen(true);

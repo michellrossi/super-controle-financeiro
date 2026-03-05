@@ -59,7 +59,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     setCategory(EXPENSE_CATEGORIES[0]);
     // Auto-select first card to avoid undefined cardId
     setCardId(cards.length > 0 ? cards[0].id : '');
-    setStatus(TransactionStatus.COMPLETED);
+    setStatus(type === TransactionType.CARD_EXPENSE ? TransactionStatus.PENDING : TransactionStatus.COMPLETED);
     setInstallments(1);
     setAmountType('installment');
   };
@@ -73,9 +73,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
           setCategory(EXPENSE_CATEGORIES[0]);
       }
       
-      // If switching to CARD, ensure a card is selected
-      if (newType === TransactionType.CARD_EXPENSE && !cardId && cards.length > 0) {
-          setCardId(cards[0].id);
+      // If switching to CARD, ensure a card is selected and default status to PENDING
+      if (newType === TransactionType.CARD_EXPENSE) {
+          if (!cardId && cards.length > 0) {
+              setCardId(cards[0].id);
+          }
+          setStatus(TransactionStatus.PENDING);
+      } else {
+          setStatus(TransactionStatus.COMPLETED);
       }
   };
 
@@ -101,7 +106,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
       date: toDateString(dateObj), 
       type,
       category,
-      status: type === TransactionType.CARD_EXPENSE ? TransactionStatus.COMPLETED : status,
+      status,
     };
 
     // Only add cardId if explicitly a CARD_EXPENSE

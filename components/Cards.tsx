@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Transaction, TransactionType } from '../types';
+import { CreditCard, Transaction, TransactionType, TransactionStatus } from '../types';
 import { formatCurrency, getInvoiceMonth } from '../services/storage';
 import { isSameMonth } from 'date-fns';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
@@ -35,7 +35,15 @@ export const CardsView: React.FC<CardsProps> = ({
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
-          const progress = Math.min((invoiceTotal / card.limit) * 100, 100);
+          const totalConsumed = transactions
+            .filter(t => 
+              t.type === TransactionType.CARD_EXPENSE && 
+              t.cardId === card.id &&
+              t.status !== TransactionStatus.COMPLETED
+            )
+            .reduce((acc, t) => acc + t.amount, 0);
+
+          const progress = Math.min((totalConsumed / card.limit) * 100, 100);
 
           // Simple solid colors with distinct look
           const bgColor = card.color; 
@@ -82,7 +90,7 @@ export const CardsView: React.FC<CardsProps> = ({
                         ></div>
                     </div>
                     <div className="flex justify-between text-[10px] font-medium text-white/90 uppercase tracking-wide">
-                        <span>Disp: {formatCurrency(card.limit - invoiceTotal)}</span>
+                        <span>Disp: {formatCurrency(card.limit - totalConsumed)}</span>
                         <span>Lim: {formatCurrency(card.limit)}</span>
                     </div>
                   </div>
