@@ -17,11 +17,12 @@ interface DebtFormProps {
 
 export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<Partial<Debt>>({
+  const [formData, setFormData] = useState<Partial<Debt & { installmentAmount?: number }>>({
     name: '',
     creditor: '',
     totalOriginalAmount: 0,
     installmentsCount: 1,
+    installmentAmount: 0,
     interestRate: 0,
     interestType: InterestType.COMPOUND,
     interestSystem: InterestSystem.PRICE,
@@ -37,7 +38,8 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      const firstInstallmentAmount = initialData.installmentAmount || initialData.installments[0]?.amount || 0;
+      setFormData({ ...initialData, installmentAmount: firstInstallmentAmount });
       const paid = initialData.installments.filter(i => i.status === TransactionStatus.COMPLETED).length;
       setPaidBefore(paid);
       setStep(3); // Go straight to details if editing
@@ -47,6 +49,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
         creditor: '',
         totalOriginalAmount: 0,
         installmentsCount: 1,
+        installmentAmount: 0,
         interestRate: 0,
         interestType: InterestType.COMPOUND,
         interestSystem: InterestSystem.PRICE,
@@ -70,8 +73,13 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
     const startDate = parseLocalDate(formData.firstInstallmentDate || toDateString(new Date()));
 
     if (formData.format === DebtFormat.FIXED_INSTALLMENTS) {
-      // Simple fixed installments: total / count
-      const amount = totalPrincipal / count;
+      // Fixed installments: user provides the amount
+      const amount = formData.installmentAmount || (totalPrincipal / count);
+      const totalAmount = amount * count;
+      const totalInterest = Math.max(0, totalAmount - totalPrincipal);
+      const interestPerInstallment = totalInterest / count;
+      const principalPerInstallment = totalPrincipal / count;
+
       for (let i = 0; i < count; i++) {
         let dueDate = addMonths(startDate, i);
         if (formData.frequency === DebtFrequency.WEEKLY) dueDate = addWeeks(startDate, i);
@@ -82,8 +90,8 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
           number: i + 1,
           dueDate: toDateString(dueDate),
           amount: parseFloat(amount.toFixed(2)),
-          principal: parseFloat(amount.toFixed(2)),
-          interest: 0,
+          principal: parseFloat(principalPerInstallment.toFixed(2)),
+          interest: parseFloat(interestPerInstallment.toFixed(2)),
           status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
           paidDate: i < paidBefore ? toDateString(dueDate) : null
         });
@@ -316,6 +324,37 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                     />
                   </div>
                 </div>
+
+                {formData.format === DebtFormat.FIXED_INSTALLMENTS && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor da parcela *</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      required
+                      value={formData.installmentAmount || ''}
+                      onChange={e => setFormData({ ...formData, installmentAmount: parseFloat(e.target.value) })}
+                      placeholder="0,00"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                    />
+                    {formData.totalOriginalAmount && formData.installmentsCount && formData.installmentAmount ? (
+                      <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">Total a pagar:</span>
+                          <span className="font-bold text-slate-700">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.installmentAmount * formData.installmentsCount)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs mt-1">
+                          <span className="text-slate-500">Total de juros:</span>
+                          <span className="font-bold text-rose-600">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((formData.installmentAmount * formData.installmentsCount) - formData.totalOriginalAmount)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
 
                 {formData.format === DebtFormat.WITH_INTEREST && (
                   <>

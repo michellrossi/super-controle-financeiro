@@ -397,17 +397,67 @@ function App() {
     fetchData(user.id);
   };
 
-  const handleUpdateDebtInstallment = async (debtId: string, installmentId: string, status: TransactionStatus) => {
+  const handleUpdateDebtInstallment = async (debtId: string, installmentId: string, status: TransactionStatus, isEarly?: boolean) => {
     if (!user) return;
     const debt = debts.find(d => d.id === debtId);
     if (!debt) return;
 
-    const updatedInstallments = debt.installments.map(i => 
-      i.id === installmentId ? { ...i, status, paidDate: status === TransactionStatus.COMPLETED ? toDateString(new Date()) : undefined } : i
-    );
+    const updatedInstallments = debt.installments.map(i => {
+      if (i.id === installmentId) {
+        let newAmount = i.amount;
+        let newInterest = i.interest;
+        
+        if (isEarly && status === TransactionStatus.COMPLETED) {
+          // Abate interest for early payment (set to 0)
+          newInterest = 0;
+          newAmount = i.principal;
+        }
+
+        return { 
+          ...i, 
+          status, 
+          amount: newAmount,
+          interest: newInterest,
+          paidDate: status === TransactionStatus.COMPLETED ? toDateString(new Date()) : null 
+        };
+      }
+      return i;
+    });
 
     await StorageService.updateDebt(user.id, { ...debt, installments: updatedInstallments });
     fetchData(user.id);
+  };
+
+  const handlePayoffDebt = async (debtId: string, discountPercentage: number) => {
+    if (!user) return;
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+
+    showConfirm({
+      title: 'Confirmar Quitação?',
+      message: `Deseja quitar todas as parcelas restantes com ${discountPercentage}% de desconto nos juros?`,
+      confirmLabel: 'Sim, Quitar',
+      cancelLabel: 'Não',
+      onConfirm: async () => {
+        const updatedInstallments = debt.installments.map(i => {
+          if (i.status !== TransactionStatus.COMPLETED) {
+            const discountedInterest = i.interest * (1 - discountPercentage / 100);
+            return {
+              ...i,
+              status: TransactionStatus.COMPLETED,
+              interest: parseFloat(discountedInterest.toFixed(2)),
+              amount: parseFloat((i.principal + discountedInterest).toFixed(2)),
+              paidDate: toDateString(new Date())
+            };
+          }
+          return i;
+        });
+
+        await StorageService.updateDebt(user.id, { ...debt, installments: updatedInstallments });
+        fetchData(user.id);
+        setIsDebtDetailsOpen(false);
+      }
+    });
   };
 
   const changeMonth = (increment: number) => {
@@ -673,6 +723,7 @@ function App() {
         onClose={() => setIsDebtDetailsOpen(false)}
         debt={selectedDebt}
         onUpdateInstallment={handleUpdateDebtInstallment}
+        onPayoffDebt={handlePayoffDebt}
         onEditDebt={(d) => { setIsDebtDetailsOpen(false); setEditingDebt(d); setIsDebtFormOpen(true); }}
         onDeleteDebt={handleDeleteDebt}
       />

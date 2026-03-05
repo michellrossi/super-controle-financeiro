@@ -11,7 +11,8 @@ interface DebtDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   debt: Debt | null;
-  onUpdateInstallment: (debtId: string, installmentId: string, status: TransactionStatus) => void;
+  onUpdateInstallment: (debtId: string, installmentId: string, status: TransactionStatus, isEarly?: boolean) => void;
+  onPayoffDebt: (debtId: string, discountPercentage: number) => void;
   onEditDebt: (debt: Debt) => void;
   onDeleteDebt: (id: string) => void;
 }
@@ -21,11 +22,12 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   onClose, 
   debt, 
   onUpdateInstallment,
+  onPayoffDebt,
   onEditDebt,
   onDeleteDebt
 }) => {
   const [showSimulator, setShowSimulator] = useState(false);
-  const [simulationDiscount, setSimulationDiscount] = useState(0);
+  const [simulationDiscount, setSimulationDiscount] = useState(100); // Default to 100% discount on interest for early payoff
 
   const stats = useMemo(() => {
     if (!debt) return null;
@@ -197,6 +199,14 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                       <p className="text-lg font-bold text-emerald-300">-{formatCurrency(simulation?.savings || 0)}</p>
                     </div>
                   </div>
+
+                  <button 
+                    onClick={() => onPayoffDebt(debt.id, simulationDiscount)}
+                    className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-50 transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 size={18} />
+                    Confirmar Quitação de Todas as Parcelas
+                  </button>
                 </div>
               </motion.div>
             )}
@@ -214,6 +224,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   key={inst.id} 
                   inst={inst} 
                   onToggle={() => onUpdateInstallment(debt.id, inst.id, inst.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED)}
+                  onEarlyPay={() => onUpdateInstallment(debt.id, inst.id, TransactionStatus.COMPLETED, true)}
                 />
               ))}
             </div>
@@ -224,7 +235,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   );
 };
 
-const InstallmentItem: React.FC<{ inst: DebtInstallment, onToggle: () => void }> = ({ inst, onToggle }) => {
+const InstallmentItem: React.FC<{ inst: DebtInstallment, onToggle: () => void, onEarlyPay: () => void }> = ({ inst, onToggle, onEarlyPay }) => {
   const isPaid = inst.status === TransactionStatus.COMPLETED;
   const isOverdue = !isPaid && isBefore(startOfDay(parseLocalDate(inst.dueDate)), startOfDay(new Date()));
 
@@ -244,17 +255,30 @@ const InstallmentItem: React.FC<{ inst: DebtInstallment, onToggle: () => void }>
             <p className="text-[10px] text-slate-400">{format(parseLocalDate(inst.dueDate), 'dd/MM/yyyy')}</p>
             {isOverdue && <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Atrasada</span>}
             {isPaid && <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Paga</span>}
+            {isPaid && inst.interest === 0 && <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider ml-1">Antecipada (S/ Juros)</span>}
           </div>
         </div>
       </div>
-      <button 
-        onClick={onToggle}
-        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-          isPaid ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
-        }`}
-      >
-        <CheckCircle2 size={20} />
-      </button>
+      <div className="flex items-center gap-2">
+        {!isPaid && (
+          <button 
+            onClick={onEarlyPay}
+            className="px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-100 transition-all flex items-center gap-1"
+            title="Pagar sem juros"
+          >
+            <TrendingDown size={12} />
+            Antecipar
+          </button>
+        )}
+        <button 
+          onClick={onToggle}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+            isPaid ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
+          }`}
+        >
+          <CheckCircle2 size={20} />
+        </button>
+      </div>
     </div>
   );
 };
