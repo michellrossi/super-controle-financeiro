@@ -90,7 +90,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     const dateObj = parseLocalDate(date);
 
     const newTransaction: Transaction = {
-      id: initialData?.id || crypto.randomUUID(),
+      id: initialData?.id || Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
       description,
       amount: parseFloat(amount),
       date: toDateString(dateObj), 
