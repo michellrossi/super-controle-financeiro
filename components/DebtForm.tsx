@@ -29,7 +29,6 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
     frequency: DebtFrequency.MONTHLY,
     format: DebtFormat.FIXED_INSTALLMENTS,
     type: DebtType.PERSONAL_LOAN,
-    wallet: '',
     observations: '',
     installments: []
   });
@@ -55,7 +54,6 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
         frequency: DebtFrequency.MONTHLY,
         format: DebtFormat.FIXED_INSTALLMENTS,
         type: DebtType.PERSONAL_LOAN,
-        wallet: '',
         observations: '',
         installments: []
       });
@@ -87,7 +85,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
           principal: parseFloat(amount.toFixed(2)),
           interest: 0,
           status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
-          paidDate: i < paidBefore ? toDateString(dueDate) : undefined
+          paidDate: i < paidBefore ? toDateString(dueDate) : null
         });
       }
     } else {
@@ -115,7 +113,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
             principal: parseFloat(principal.toFixed(2)),
             interest: parseFloat(interest.toFixed(2)),
             status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
-            paidDate: i < paidBefore ? toDateString(dueDate) : undefined
+            paidDate: i < paidBefore ? toDateString(dueDate) : null
           });
         }
       } else {
@@ -141,7 +139,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
             principal: parseFloat(principalPerMonth.toFixed(2)),
             interest: parseFloat(interest.toFixed(2)),
             status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
-            paidDate: i < paidBefore ? toDateString(dueDate) : undefined
+            paidDate: i < paidBefore ? toDateString(dueDate) : null
           });
         }
       }
@@ -161,12 +159,22 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
   };
 
   if (!isOpen) return null;
+  
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(e) => e.stopPropagation()}
         className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Header */}
@@ -398,17 +406,6 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                     value={paidBefore}
                     onChange={e => setPaidBefore(parseInt(e.target.value) || 0)}
                     placeholder="0"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conta da carteira</label>
-                  <input 
-                    type="text" 
-                    value={formData.wallet}
-                    onChange={e => setFormData({ ...formData, wallet: e.target.value })}
-                    placeholder="Selecione a conta"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
                   />
                 </div>

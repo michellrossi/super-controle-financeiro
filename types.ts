@@ -155,7 +155,6 @@ export interface Debt {
   frequency: DebtFrequency;
   format: DebtFormat;
   type: DebtType;
-  wallet?: string;
   observations?: string;
   installments: DebtInstallment[];
 }

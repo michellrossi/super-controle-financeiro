@@ -663,7 +663,7 @@ function App() {
 
       <DebtForm 
         isOpen={isDebtFormOpen}
-        onClose={() => setIsDebtFormOpen(false)}
+        onClose={() => { setIsDebtFormOpen(false); setEditingDebt(null); }}
         onSubmit={handleDebtSubmit}
         initialData={editingDebt}
       />

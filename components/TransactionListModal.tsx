@@ -95,7 +95,7 @@ const TransactionListItem: React.FC<{
       >
           {/* Left: Icon & Description */}
           <div className="flex items-center gap-3 flex-1 min-w-0 pointer-events-none">
-              <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${iconColor}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
                 <CategoryIcon category={t.category} size={20} />
               </div>
               

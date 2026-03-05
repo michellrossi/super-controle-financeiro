@@ -57,13 +57,19 @@ export const getInvoiceMonth = (date: Date, closingDay: number): Date => {
 };
 
 // Helper to remove undefined keys which Firestore rejects
-const cleanPayload = (data: any) => {
-  return Object.entries(data).reduce((acc, [k, v]) => {
-    if (v !== undefined) {
-      acc[k] = v;
-    }
-    return acc;
-  }, {} as any);
+const cleanPayload = (data: any): any => {
+  if (Array.isArray(data)) {
+    return data.map(item => cleanPayload(item));
+  }
+  if (data !== null && typeof data === 'object') {
+    return Object.entries(data).reduce((acc, [k, v]) => {
+      if (v !== undefined) {
+        acc[k] = cleanPayload(v);
+      }
+      return acc;
+    }, {} as any);
+  }
+  return data;
 };
 
 export const generateInstallments = (baseTransaction: Transaction, totalInstallments: number, amountType: 'total' | 'installment' = 'installment'): Transaction[] => {
