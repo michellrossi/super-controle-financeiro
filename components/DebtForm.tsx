@@ -109,36 +109,14 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
     const startDate = parseLocalDate(formData.firstInstallmentDate || toDateString(new Date()));
 
     if (formData.format === DebtFormat.FIXED_INSTALLMENTS) {
-      // Fixed installments: calculate effective interest rate first
       const totalPrincipal = formData.totalOriginalAmount || 0;
       const count = formData.installmentsCount || 1;
       const pmt = formData.installmentAmount || (totalPrincipal / count);
       
-      let rate = 0;
-      if (pmt * count > totalPrincipal) {
-        // Bisection method to find interest rate
-        let low = 0;
-        let high = 100; // 10000% per month
-        for (let i = 0; i < 100; i++) {
-          const mid = (low + high) / 2;
-          const r = mid / 100;
-          const guessPmt = r === 0 ? totalPrincipal / count : totalPrincipal * (r * Math.pow(1 + r, count)) / (Math.pow(1 + r, count) - 1);
-          if (guessPmt > pmt) high = mid;
-          else low = mid;
-        }
-        rate = (low + high) / 200; // rate as decimal
-      }
+      const principalPerInst = totalPrincipal / count;
+      const interestPerInst = pmt - principalPerInst;
 
-      let remainingBalance = totalPrincipal;
       for (let i = 0; i < count; i++) {
-        const interest = remainingBalance * rate;
-        let principal = pmt - interest;
-        
-        if (i === count - 1) principal = remainingBalance;
-        
-        const currentAmount = principal + interest;
-        remainingBalance -= principal;
-
         let dueDate = addMonths(startDate, i);
         if (formData.frequency === DebtFrequency.WEEKLY) dueDate = addWeeks(startDate, i);
         if (formData.frequency === DebtFrequency.YEARLY) dueDate = addYears(startDate, i);
@@ -147,9 +125,9 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
           id: crypto.randomUUID(),
           number: i + 1,
           dueDate: toDateString(dueDate),
-          amount: parseFloat(currentAmount.toFixed(2)),
-          principal: parseFloat(principal.toFixed(2)),
-          interest: parseFloat(interest.toFixed(2)),
+          amount: parseFloat(pmt.toFixed(2)),
+          principal: parseFloat(principalPerInst.toFixed(2)),
+          interest: parseFloat(interestPerInst.toFixed(2)),
           status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
           paidDate: i < paidBefore ? toDateString(dueDate) : null
         });
@@ -430,12 +408,6 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                           <span className="text-slate-500">Total de juros:</span>
                           <span className="font-bold text-rose-600">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((formData.installmentAmount * formData.installmentsCount) - formData.totalOriginalAmount)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs mt-1">
-                          <span className="text-slate-500">Taxa calculada:</span>
-                          <span className="font-bold text-emerald-600">
-                            {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3 }).format(calculateEffectiveRateForSubmit())}% a.m.
                           </span>
                         </div>
                       </div>

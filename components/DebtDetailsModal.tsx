@@ -55,36 +55,20 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
     const now = startOfDay(new Date());
 
     if (simMode === 'full') {
-      let totalPV = 0;
-      let totalFV = 0;
-      
-      unpaid.forEach(inst => {
-        const dueDate = parseLocalDate(inst.dueDate);
-        let periods = 0;
-        if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
-        else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
-        else periods = Math.max(0, differenceInMonths(dueDate, now));
-
-        const pv = inst.amount / Math.pow(1 + rate, periods);
-        totalPV += pv;
-        totalFV += inst.amount;
-      });
-
-      const totalInterest = totalFV - totalPV;
-      const interestToPay = totalInterest * (1 - simulationDiscount / 100);
-      const finalAmount = totalPV + interestToPay;
-      const savings = totalInterest - interestToPay;
-
+      const totalPrincipal = unpaid.reduce((acc, i) => acc + i.principal, 0);
+      const totalInterest = unpaid.reduce((acc, i) => acc + i.interest, 0);
+      const discountedInterest = totalInterest * (1 - simulationDiscount / 100);
+      const finalAmount = totalPrincipal + discountedInterest;
       return { 
-        totalPrincipal: totalPV, // In this context, PV is the "principal" to be paid today
+        totalPrincipal, 
         totalInterest, 
-        discountedInterest: interestToPay, 
+        discountedInterest, 
         finalAmount, 
-        savings,
+        savings: totalInterest - discountedInterest,
         mode: 'full' as const
       };
     } else {
-      // Extra Payment Logic: Amortize from the end (term reduction) using PV
+      // Extra Payment Logic: Amortize from the end (term reduction)
       const unpaidReversed = [...unpaid].reverse();
       let remainingAmount = extraPaymentAmount;
       let installmentsAbated = 0;
@@ -92,19 +76,11 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
       const abatedItems: { id: string, principal: number }[] = [];
 
       for (const inst of unpaidReversed) {
-        const dueDate = parseLocalDate(inst.dueDate);
-        let periods = 0;
-        if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
-        else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
-        else periods = Math.max(0, differenceInMonths(dueDate, now));
-
-        const pv = inst.amount / Math.pow(1 + rate, periods);
-
-        if (remainingAmount >= pv) {
-          remainingAmount -= pv;
+        if (remainingAmount >= inst.principal) {
+          remainingAmount -= inst.principal;
           installmentsAbated++;
-          totalInterestSaved += (inst.amount - pv);
-          abatedItems.push({ id: inst.id, principal: pv });
+          totalInterestSaved += inst.interest;
+          abatedItems.push({ id: inst.id, principal: inst.principal });
         } else {
           break;
         }
@@ -194,7 +170,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
           <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Taxa</p>
-              <p className="text-xs font-bold text-slate-700">{debt.interestRate}% {debt.frequency === 'Mensal' ? 'a.m.' : 'a.a.'}</p>
+              <p className="text-xs font-bold text-slate-700">{(debt.interestRate || 0).toFixed(2)}% {debt.frequency === 'Mensal' ? 'a.m.' : 'a.a.'}</p>
             </div>
             <div>
               <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Sistema</p>
@@ -396,17 +372,8 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   inst={inst} 
                   onToggle={() => onUpdateInstallment(debt.id, inst.id, inst.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED)}
                   onEarlyPay={() => {
-                    const r = (debt.interestRate || 0) / 100;
-                    const now = startOfDay(new Date());
-                    const dueDate = parseLocalDate(inst.dueDate);
-                    let periods = 0;
-                    if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
-                    else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
-                    else periods = Math.max(0, differenceInMonths(dueDate, now));
-                    
-                    const pv = inst.amount / Math.pow(1 + r, periods);
                     setAnticipateInstallment(inst);
-                    setAnticipateAmount(parseFloat(pv.toFixed(2)));
+                    setAnticipateAmount(inst.principal);
                   }}
                 />
               ))}
