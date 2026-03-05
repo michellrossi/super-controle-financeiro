@@ -3,7 +3,7 @@ import { Debt, DebtInstallment, TransactionStatus } from '../types';
 import { formatCurrency } from '../services/storage';
 import { X, CheckCircle2, Clock, AlertCircle, Calculator, Trash2, Edit2, TrendingDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, isBefore, startOfDay } from 'date-fns';
+import { format, isBefore, startOfDay, differenceInMonths, differenceInWeeks, differenceInYears } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate } from '../utils/date';
 
@@ -51,21 +51,40 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
       .filter(i => i.status !== TransactionStatus.COMPLETED)
       .sort((a, b) => a.number - b.number);
 
+    const rate = (debt.interestRate || 0) / 100;
+    const now = startOfDay(new Date());
+
     if (simMode === 'full') {
-      const totalPrincipal = unpaid.reduce((acc, i) => acc + i.principal, 0);
-      const totalInterest = unpaid.reduce((acc, i) => acc + i.interest, 0);
-      const discountedInterest = totalInterest * (1 - simulationDiscount / 100);
-      const finalAmount = totalPrincipal + discountedInterest;
+      let totalPV = 0;
+      let totalFV = 0;
+      
+      unpaid.forEach(inst => {
+        const dueDate = parseLocalDate(inst.dueDate);
+        let periods = 0;
+        if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
+        else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
+        else periods = Math.max(0, differenceInMonths(dueDate, now));
+
+        const pv = inst.amount / Math.pow(1 + rate, periods);
+        totalPV += pv;
+        totalFV += inst.amount;
+      });
+
+      const totalInterest = totalFV - totalPV;
+      const interestToPay = totalInterest * (1 - simulationDiscount / 100);
+      const finalAmount = totalPV + interestToPay;
+      const savings = totalInterest - interestToPay;
+
       return { 
-        totalPrincipal, 
+        totalPrincipal: totalPV, // In this context, PV is the "principal" to be paid today
         totalInterest, 
-        discountedInterest, 
+        discountedInterest: interestToPay, 
         finalAmount, 
-        savings: totalInterest - discountedInterest,
+        savings,
         mode: 'full' as const
       };
     } else {
-      // Extra Payment Logic: Amortize from the end (term reduction)
+      // Extra Payment Logic: Amortize from the end (term reduction) using PV
       const unpaidReversed = [...unpaid].reverse();
       let remainingAmount = extraPaymentAmount;
       let installmentsAbated = 0;
@@ -73,11 +92,19 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
       const abatedItems: { id: string, principal: number }[] = [];
 
       for (const inst of unpaidReversed) {
-        if (remainingAmount >= inst.principal) {
-          remainingAmount -= inst.principal;
+        const dueDate = parseLocalDate(inst.dueDate);
+        let periods = 0;
+        if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
+        else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
+        else periods = Math.max(0, differenceInMonths(dueDate, now));
+
+        const pv = inst.amount / Math.pow(1 + rate, periods);
+
+        if (remainingAmount >= pv) {
+          remainingAmount -= pv;
           installmentsAbated++;
-          totalInterestSaved += inst.interest;
-          abatedItems.push({ id: inst.id, principal: inst.principal });
+          totalInterestSaved += (inst.amount - pv);
+          abatedItems.push({ id: inst.id, principal: pv });
         } else {
           break;
         }
@@ -369,8 +396,17 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   inst={inst} 
                   onToggle={() => onUpdateInstallment(debt.id, inst.id, inst.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED)}
                   onEarlyPay={() => {
+                    const r = (debt.interestRate || 0) / 100;
+                    const now = startOfDay(new Date());
+                    const dueDate = parseLocalDate(inst.dueDate);
+                    let periods = 0;
+                    if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
+                    else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
+                    else periods = Math.max(0, differenceInMonths(dueDate, now));
+                    
+                    const pv = inst.amount / Math.pow(1 + r, periods);
                     setAnticipateInstallment(inst);
-                    setAnticipateAmount(inst.principal);
+                    setAnticipateAmount(parseFloat(pv.toFixed(2)));
                   }}
                 />
               ))}

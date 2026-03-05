@@ -12,7 +12,7 @@ import { DebtDetailsModal } from './components/DebtDetailsModal';
 import { StorageService, generateInstallments, getInvoiceMonth } from './services/storage';
 import { User, Transaction, ViewState, FilterState, CreditCard, TransactionType, TransactionStatus, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from './types';
 import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut, TrendingDown } from 'lucide-react';
-import { format, isSameMonth } from 'date-fns';
+import { format, isSameMonth, startOfDay, differenceInMonths, differenceInWeeks, differenceInYears } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate, toDateString } from './utils/date';
 import { ConfirmModal } from './components/ui/ConfirmModal';
@@ -449,14 +449,28 @@ function App() {
       confirmLabel: 'Sim, Quitar',
       cancelLabel: 'Não',
       onConfirm: async () => {
+        const rate = (debt.interestRate || 0) / 100;
+        const now = startOfDay(new Date());
+
         const updatedInstallments = debt.installments.map(i => {
           if (i.status !== TransactionStatus.COMPLETED) {
-            const discountedInterest = i.interest * (1 - discountPercentage / 100);
+            const dueDate = parseLocalDate(i.dueDate);
+            let periods = 0;
+            if (debt.frequency === 'Semanal') periods = Math.max(0, differenceInWeeks(dueDate, now));
+            else if (debt.frequency === 'Anual') periods = Math.max(0, differenceInYears(dueDate, now));
+            else periods = Math.max(0, differenceInMonths(dueDate, now));
+
+            const pv = i.amount / Math.pow(1 + rate, periods);
+            const totalInterest = i.amount - pv;
+            const interestToPay = totalInterest * (1 - discountPercentage / 100);
+            const amountToPay = pv + interestToPay;
+
             return {
               ...i,
               status: TransactionStatus.COMPLETED,
-              interest: parseFloat(discountedInterest.toFixed(2)),
-              amount: parseFloat((i.principal + discountedInterest).toFixed(2)),
+              interest: parseFloat(interestToPay.toFixed(2)),
+              amount: parseFloat(amountToPay.toFixed(2)),
+              principal: parseFloat(pv.toFixed(2)),
               paidDate: toDateString(new Date())
             };
           }

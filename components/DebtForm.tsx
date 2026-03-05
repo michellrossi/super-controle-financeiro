@@ -109,14 +109,36 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
     const startDate = parseLocalDate(formData.firstInstallmentDate || toDateString(new Date()));
 
     if (formData.format === DebtFormat.FIXED_INSTALLMENTS) {
-      // Fixed installments: user provides the amount
-      const amount = formData.installmentAmount || (totalPrincipal / count);
-      const totalAmount = amount * count;
-      const totalInterest = Math.max(0, totalAmount - totalPrincipal);
-      const interestPerInstallment = totalInterest / count;
-      const principalPerInstallment = totalPrincipal / count;
+      // Fixed installments: calculate effective interest rate first
+      const totalPrincipal = formData.totalOriginalAmount || 0;
+      const count = formData.installmentsCount || 1;
+      const pmt = formData.installmentAmount || (totalPrincipal / count);
+      
+      let rate = 0;
+      if (pmt * count > totalPrincipal) {
+        // Bisection method to find interest rate
+        let low = 0;
+        let high = 100; // 10000% per month
+        for (let i = 0; i < 100; i++) {
+          const mid = (low + high) / 2;
+          const r = mid / 100;
+          const guessPmt = r === 0 ? totalPrincipal / count : totalPrincipal * (r * Math.pow(1 + r, count)) / (Math.pow(1 + r, count) - 1);
+          if (guessPmt > pmt) high = mid;
+          else low = mid;
+        }
+        rate = (low + high) / 200; // rate as decimal
+      }
 
+      let remainingBalance = totalPrincipal;
       for (let i = 0; i < count; i++) {
+        const interest = remainingBalance * rate;
+        let principal = pmt - interest;
+        
+        if (i === count - 1) principal = remainingBalance;
+        
+        const currentAmount = principal + interest;
+        remainingBalance -= principal;
+
         let dueDate = addMonths(startDate, i);
         if (formData.frequency === DebtFrequency.WEEKLY) dueDate = addWeeks(startDate, i);
         if (formData.frequency === DebtFrequency.YEARLY) dueDate = addYears(startDate, i);
@@ -125,9 +147,9 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
           id: crypto.randomUUID(),
           number: i + 1,
           dueDate: toDateString(dueDate),
-          amount: parseFloat(amount.toFixed(2)),
-          principal: parseFloat(principalPerInstallment.toFixed(2)),
-          interest: parseFloat(interestPerInstallment.toFixed(2)),
+          amount: parseFloat(currentAmount.toFixed(2)),
+          principal: parseFloat(principal.toFixed(2)),
+          interest: parseFloat(interest.toFixed(2)),
           status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
           paidDate: i < paidBefore ? toDateString(dueDate) : null
         });
@@ -204,12 +226,32 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
     return installments;
   };
 
+  const calculateEffectiveRateForSubmit = () => {
+    const totalPrincipal = formData.totalOriginalAmount || 0;
+    const count = formData.installmentsCount || 1;
+    const pmt = formData.installmentAmount || (totalPrincipal / count);
+    
+    if (pmt * count <= totalPrincipal) return 0;
+
+    let low = 0;
+    let high = 100;
+    for (let i = 0; i < 100; i++) {
+      const mid = (low + high) / 2;
+      const r = mid / 100;
+      const guessPmt = totalPrincipal * (r * Math.pow(1 + r, count)) / (Math.pow(1 + r, count) - 1);
+      if (guessPmt > pmt) high = mid;
+      else low = mid;
+    }
+    return (low + high) / 2;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const installments = calculateInstallments();
     onSubmit({
       ...formData,
       id: formData.id || crypto.randomUUID(),
+      interestRate: formData.format === DebtFormat.FIXED_INSTALLMENTS ? calculateEffectiveRateForSubmit() : formData.interestRate,
       installments
     } as Debt);
     onClose();
@@ -390,6 +432,12 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((formData.installmentAmount * formData.installmentsCount) - formData.totalOriginalAmount)}
                           </span>
                         </div>
+                        <div className="flex justify-between text-xs mt-1">
+                          <span className="text-slate-500">Taxa calculada:</span>
+                          <span className="font-bold text-emerald-600">
+                            {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3 }).format(calculateEffectiveRateForSubmit())}% a.m.
+                          </span>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -405,12 +453,12 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                         <div className="relative">
                           <input 
                             type="text" 
-                            value={new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(formData.interestRate || 0)}
+                            value={new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(formData.interestRate || 0)}
                             onChange={e => {
                               const raw = e.target.value.replace(/\D/g, '');
-                              setFormData({ ...formData, interestRate: parseInt(raw || '0') / 100 });
+                              setFormData({ ...formData, interestRate: parseInt(raw || '0') / 1000 });
                             }}
-                            placeholder="2,50"
+                            placeholder="2,500"
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-medium text-slate-700"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
