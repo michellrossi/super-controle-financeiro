@@ -3,15 +3,18 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
 import { CardsView } from './components/Cards';
+import { DebtsView } from './components/Debts';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionListModal } from './components/TransactionListModal';
 import { CardForm } from './components/CardForm';
+import { DebtForm } from './components/DebtForm';
+import { DebtDetailsModal } from './components/DebtDetailsModal';
 import { StorageService, generateInstallments, getInvoiceMonth } from './services/storage';
-import { User, Transaction, ViewState, FilterState, CreditCard, TransactionType, TransactionStatus, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from './types';
-import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut } from 'lucide-react';
+import { User, Transaction, ViewState, FilterState, CreditCard, TransactionType, TransactionStatus, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from './types';
+import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut, TrendingDown } from 'lucide-react';
 import { format, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { parseLocalDate } from './utils/date';
+import { parseLocalDate, toDateString } from './utils/date';
 import { ConfirmModal } from './components/ui/ConfirmModal';
 
 function App() {
@@ -23,6 +26,7 @@ function App() {
   // Data State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CreditCard[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
 
   // UX State - Transaction Form
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -31,6 +35,12 @@ function App() {
   // UX State - Card Form
   const [isCardFormOpen, setIsCardFormOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
+
+  // UX State - Debt Form
+  const [isDebtFormOpen, setIsDebtFormOpen] = useState(false);
+  const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [isDebtDetailsOpen, setIsDebtDetailsOpen] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
 
   // UX State - List Modal
   const [isListModalOpen, setIsListModalOpen] = useState(false);
@@ -90,12 +100,14 @@ function App() {
   const fetchData = async (userId: string) => {
     setLoading(true);
     try {
-      const [txs, cds] = await Promise.all([
+      const [txs, cds, dts] = await Promise.all([
         StorageService.getTransactions(userId),
-        StorageService.getCards(userId)
+        StorageService.getCards(userId),
+        StorageService.getDebts(userId)
       ]);
       setTransactions(txs);
       setCards(cds);
+      setDebts(dts);
     } catch (e) {
       console.error(e);
     } finally {
@@ -358,10 +370,44 @@ function App() {
 
   const handleDeleteCard = async (id: string) => {
     if (!user) return;
-    if (window.confirm('Excluir cartão?')) {
-      await StorageService.deleteCard(user.id, id);
-      fetchData(user.id);
-    }
+    showConfirm({
+      title: 'Excluir Cartão?',
+      message: 'Tem certeza que deseja excluir este cartão?',
+      type: 'danger',
+      confirmLabel: 'Sim',
+      cancelLabel: 'Não',
+      onConfirm: async () => {
+        await StorageService.deleteCard(user.id, id);
+        fetchData(user.id);
+      }
+    });
+  };
+
+  // --- Debt Handlers ---
+  const handleDebtSubmit = async (d: Debt) => {
+    if (!user) return;
+    if (editingDebt) await StorageService.updateDebt(user.id, d);
+    else await StorageService.addDebt(user.id, d);
+    fetchData(user.id);
+  };
+
+  const handleDeleteDebt = async (id: string) => {
+    if (!user) return;
+    await StorageService.deleteDebt(user.id, id);
+    fetchData(user.id);
+  };
+
+  const handleUpdateDebtInstallment = async (debtId: string, installmentId: string, status: TransactionStatus) => {
+    if (!user) return;
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+
+    const updatedInstallments = debt.installments.map(i => 
+      i.id === installmentId ? { ...i, status, paidDate: status === TransactionStatus.COMPLETED ? toDateString(new Date()) : undefined } : i
+    );
+
+    await StorageService.updateDebt(user.id, { ...debt, installments: updatedInstallments });
+    fetchData(user.id);
   };
 
   const changeMonth = (increment: number) => {
@@ -443,6 +489,7 @@ function App() {
   if (currentView === 'INCOMES') viewTitle = 'Minhas Entradas';
   if (currentView === 'EXPENSES') viewTitle = 'Minhas Saídas';
   if (currentView === 'CARDS') viewTitle = 'Meus Cartões';
+  if (currentView === 'DEBTS') viewTitle = 'Minhas Dívidas';
 
   // Filter view logic for Income/Expense tabs
   const getFilteredTransactionsForView = () => {
@@ -577,6 +624,16 @@ function App() {
             onAddNewCard={() => { setEditingCard(null); setIsCardFormOpen(true); }}
           />
         )}
+
+        {currentView === 'DEBTS' && (
+          <DebtsView 
+            debts={debts}
+            onAddDebt={() => { setEditingDebt(null); setIsDebtFormOpen(true); }}
+            onEditDebt={(d) => { setEditingDebt(d); setIsDebtFormOpen(true); }}
+            onDeleteDebt={handleDeleteDebt}
+            onViewInstallments={(d) => { setSelectedDebt(d); setIsDebtDetailsOpen(true); }}
+          />
+        )}
       </div>
 
       {/* Floating Action Button (FAB) for Web Only - Now uses smart open */}
@@ -602,6 +659,22 @@ function App() {
         onClose={() => setIsCardFormOpen(false)}
         onSubmit={handleCardSubmit}
         initialData={editingCard}
+      />
+
+      <DebtForm 
+        isOpen={isDebtFormOpen}
+        onClose={() => setIsDebtFormOpen(false)}
+        onSubmit={handleDebtSubmit}
+        initialData={editingDebt}
+      />
+
+      <DebtDetailsModal 
+        isOpen={isDebtDetailsOpen}
+        onClose={() => setIsDebtDetailsOpen(false)}
+        debt={selectedDebt}
+        onUpdateInstallment={handleUpdateDebtInstallment}
+        onEditDebt={(d) => { setIsDebtDetailsOpen(false); setEditingDebt(d); setIsDebtFormOpen(true); }}
+        onDeleteDebt={handleDeleteDebt}
       />
 
       <TransactionListModal 

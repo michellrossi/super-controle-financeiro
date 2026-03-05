@@ -1,4 +1,4 @@
-import { Transaction, CreditCard, TransactionType, TransactionStatus, User, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../types';
+import { Transaction, CreditCard, TransactionType, TransactionStatus, User, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from '../types';
 import { parseLocalDate, toDateString } from '../utils/date';
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
@@ -268,5 +268,30 @@ export const StorageService = {
 
   deleteCard: async (userId: string, id: string) => {
     await deleteDoc(doc(db, "cards", id));
+  },
+
+  // --- Debts ---
+
+  getDebts: async (userId: string): Promise<Debt[]> => {
+    const q = query(collection(db, "debts"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+  },
+
+  addDebt: async (userId: string, d: Debt) => {
+    const { id, ...data } = d;
+    const payload = cleanPayload({ ...data, userId });
+    await addDoc(collection(db, "debts"), payload);
+  },
+
+  updateDebt: async (userId: string, d: Debt) => {
+    const { id, ...data } = d;
+    const ref = doc(db, "debts", id);
+    const payload = cleanPayload(data);
+    await updateDoc(ref, payload);
+  },
+
+  deleteDebt: async (userId: string, id: string) => {
+    await deleteDoc(doc(db, "debts", id));
   }
 };

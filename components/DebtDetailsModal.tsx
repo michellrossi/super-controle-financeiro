@@ -1,0 +1,261 @@
+import React, { useState, useMemo } from 'react';
+import { Debt, DebtInstallment, TransactionStatus } from '../types';
+import { formatCurrency } from '../services/storage';
+import { X, CheckCircle2, Clock, AlertCircle, Calculator, Trash2, Edit2, TrendingDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format, isBefore, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { parseLocalDate } from '../utils/date';
+
+interface DebtDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  debt: Debt | null;
+  onUpdateInstallment: (debtId: string, installmentId: string, status: TransactionStatus) => void;
+  onEditDebt: (debt: Debt) => void;
+  onDeleteDebt: (id: string) => void;
+}
+
+export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  debt, 
+  onUpdateInstallment,
+  onEditDebt,
+  onDeleteDebt
+}) => {
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [simulationDiscount, setSimulationDiscount] = useState(0);
+
+  const stats = useMemo(() => {
+    if (!debt) return null;
+    const paid = debt.installments.filter(i => i.status === TransactionStatus.COMPLETED);
+    const unpaid = debt.installments.filter(i => i.status !== TransactionStatus.COMPLETED);
+    const totalPaid = paid.reduce((acc, i) => acc + i.amount, 0);
+    const totalOutstanding = unpaid.reduce((acc, i) => acc + i.amount, 0);
+    const totalInterestPaid = paid.reduce((acc, i) => acc + i.interest, 0);
+    const progress = Math.round((paid.length / debt.installments.length) * 100) || 0;
+
+    return { paidCount: paid.length, totalCount: debt.installments.length, totalPaid, totalOutstanding, totalInterestPaid, progress };
+  }, [debt]);
+
+  const simulation = useMemo(() => {
+    if (!debt || !showSimulator) return null;
+    const unpaid = debt.installments.filter(i => i.status !== TransactionStatus.COMPLETED);
+    const totalPrincipal = unpaid.reduce((acc, i) => acc + i.principal, 0);
+    const totalInterest = unpaid.reduce((acc, i) => acc + i.interest, 0);
+    const discountedInterest = totalInterest * (1 - simulationDiscount / 100);
+    const finalAmount = totalPrincipal + discountedInterest;
+
+    return { totalPrincipal, totalInterest, discountedInterest, finalAmount, savings: totalInterest - discountedInterest };
+  }, [debt, showSimulator, simulationDiscount]);
+
+  if (!isOpen || !debt) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm border border-slate-100">
+              {getDebtIcon(debt.type)}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">{debt.name}</h2>
+              <p className="text-xs text-slate-400">{debt.creditor}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => onEditDebt(debt)}
+              className="p-2 hover:bg-emerald-50 rounded-full text-slate-400 hover:text-emerald-600 transition-colors"
+            >
+              <Edit2 size={18} />
+            </button>
+            <button 
+              onClick={() => { if(window.confirm('Excluir esta dívida?')) onDeleteDebt(debt.id); onClose(); }}
+              className="p-2 hover:bg-red-50 rounded-full text-slate-400 hover:text-red-600 transition-colors"
+            >
+              <Trash2 size={18} />
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Progress & Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Parcelas</p>
+              <p className="text-sm font-bold text-slate-800">{stats?.paidCount}/{stats?.totalCount}</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Saldo Devedor</p>
+              <p className="text-sm font-bold text-red-500">{formatCurrency(stats?.totalOutstanding || 0)}</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Total Pago</p>
+              <p className="text-sm font-bold text-emerald-500">{formatCurrency(stats?.totalPaid || 0)}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-400 uppercase tracking-wider">Progresso da Quitação</span>
+              <span className="text-emerald-600">{stats?.progress}%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${stats?.progress}%` }}
+                className="h-full bg-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setShowSimulator(!showSimulator)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${
+                showSimulator ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+              }`}
+            >
+              <Calculator size={18} />
+              Simulador de Quitação
+            </button>
+          </div>
+
+          {/* Simulator Panel */}
+          <AnimatePresence>
+            {showSimulator && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-indigo-900">Simulação de Quitação Antecipada</h3>
+                    <TrendingDown className="text-indigo-400" size={20} />
+                  </div>
+                  <p className="text-xs text-indigo-700">
+                    Ao quitar antecipadamente, você pode economizar nos juros. Ajuste o desconto esperado sobre os juros futuros:
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-bold text-indigo-900">
+                      <span>Desconto nos Juros</span>
+                      <span>{simulationDiscount}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      value={simulationDiscount}
+                      onChange={e => setSimulationDiscount(parseInt(e.target.value))}
+                      className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="bg-white p-3 rounded-xl border border-indigo-100">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Principal</p>
+                      <p className="text-sm font-bold text-slate-800">{formatCurrency(simulation?.totalPrincipal || 0)}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-indigo-100">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Juros com Desconto</p>
+                      <p className="text-sm font-bold text-slate-800">{formatCurrency(simulation?.discountedInterest || 0)}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-600 p-4 rounded-2xl text-white flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Valor para Quitar Hoje</p>
+                      <p className="text-xl font-bold">{formatCurrency(simulation?.finalAmount || 0)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Economia</p>
+                      <p className="text-lg font-bold text-emerald-300">-{formatCurrency(simulation?.savings || 0)}</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Installments List */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Clock size={18} className="text-slate-400" />
+              Cronograma de Parcelas
+            </h3>
+            <div className="space-y-2">
+              {debt.installments.map((inst) => (
+                <InstallmentItem 
+                  key={inst.id} 
+                  inst={inst} 
+                  onToggle={() => onUpdateInstallment(debt.id, inst.id, inst.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const InstallmentItem: React.FC<{ inst: DebtInstallment, onToggle: () => void }> = ({ inst, onToggle }) => {
+  const isPaid = inst.status === TransactionStatus.COMPLETED;
+  const isOverdue = !isPaid && isBefore(startOfDay(parseLocalDate(inst.dueDate)), startOfDay(new Date()));
+
+  return (
+    <div className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+      isPaid ? 'bg-emerald-50/30 border-emerald-100' : isOverdue ? 'bg-red-50/30 border-red-100' : 'bg-white border-slate-100'
+    }`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
+          isPaid ? 'bg-emerald-100 text-emerald-600' : isOverdue ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'
+        }`}>
+          {inst.number}
+        </div>
+        <div>
+          <p className="text-sm font-bold text-slate-800">{formatCurrency(inst.amount)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-slate-400">{format(parseLocalDate(inst.dueDate), 'dd/MM/yyyy')}</p>
+            {isOverdue && <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Atrasada</span>}
+            {isPaid && <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Paga</span>}
+          </div>
+        </div>
+      </div>
+      <button 
+        onClick={onToggle}
+        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+          isPaid ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
+        }`}
+      >
+        <CheckCircle2 size={20} />
+      </button>
+    </div>
+  );
+};
+
+const getDebtIcon = (type: string) => {
+  switch (type) {
+    case 'Empréstimo Pessoal': return '💰';
+    case 'Financiamento': return '🏠';
+    case 'Consórcio': return '🤝';
+    case 'Cartão Parcelado': return '💳';
+    case 'Dívida Informal': return '☝️';
+    default: return '📄';
+  }
+};
