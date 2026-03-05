@@ -124,7 +124,7 @@ const TransactionItem: React.FC<{
       >
           {/* Left Section: Icon & Details */}
           <div className="flex items-center gap-4 w-full sm:w-auto min-w-0 pointer-events-none"> {/* pointer-events-none to prevent interfering with click */}
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
+              <div className={`w-12 h-12 flex items-center justify-center shrink-0 ${iconColor}`}>
                 {isVirtual ? <Receipt size={24} /> : <CategoryIcon category={t.category} size={24} />}
               </div>
 

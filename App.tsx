@@ -397,7 +397,7 @@ function App() {
     fetchData(user.id);
   };
 
-  const handleUpdateDebtInstallment = async (debtId: string, installmentId: string, status: TransactionStatus, isEarly?: boolean) => {
+  const handleUpdateDebtInstallment = async (debtId: string, installmentId: string, status: TransactionStatus, customAmount?: number) => {
     if (!user) return;
     const debt = debts.find(d => d.id === debtId);
     if (!debt) return;
@@ -407,10 +407,14 @@ function App() {
         let newAmount = i.amount;
         let newInterest = i.interest;
         
-        if (isEarly && status === TransactionStatus.COMPLETED) {
-          // Abate interest for early payment (set to 0)
-          newInterest = 0;
-          newAmount = i.principal;
+        if (customAmount !== undefined && status === TransactionStatus.COMPLETED) {
+          // If custom amount is provided, we assume it's an early payment
+          // We need to adjust interest based on the custom amount
+          // New Interest = Custom Amount - Principal (if custom amount > principal)
+          // But usually, "Antecipar" means paying less than the full amount (waiving interest)
+          // The user enters what they REALLY paid.
+          newAmount = customAmount;
+          newInterest = Math.max(0, customAmount - i.principal);
         }
 
         return { 
@@ -424,8 +428,14 @@ function App() {
       return i;
     });
 
-    await StorageService.updateDebt(user.id, { ...debt, installments: updatedInstallments });
-    fetchData(user.id);
+    const updatedDebt = { ...debt, installments: updatedInstallments };
+    await StorageService.updateDebt(user.id, updatedDebt);
+    
+    // Update local state immediately for better UX
+    setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
+    if (selectedDebt?.id === debtId) {
+      setSelectedDebt(updatedDebt);
+    }
   };
 
   const handlePayoffDebt = async (debtId: string, discountPercentage: number) => {

@@ -11,7 +11,7 @@ interface DebtDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   debt: Debt | null;
-  onUpdateInstallment: (debtId: string, installmentId: string, status: TransactionStatus, isEarly?: boolean) => void;
+  onUpdateInstallment: (debtId: string, installmentId: string, status: TransactionStatus, amount?: number) => void;
   onPayoffDebt: (debtId: string, discountPercentage: number) => void;
   onEditDebt: (debt: Debt) => void;
   onDeleteDebt: (id: string) => void;
@@ -28,6 +28,8 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
 }) => {
   const [showSimulator, setShowSimulator] = useState(false);
   const [simulationDiscount, setSimulationDiscount] = useState(100); // Default to 100% discount on interest for early payoff
+  const [anticipateInstallment, setAnticipateInstallment] = useState<DebtInstallment | null>(null);
+  const [anticipateAmount, setAnticipateAmount] = useState<string>('');
 
   const stats = useMemo(() => {
     if (!debt) return null;
@@ -224,12 +226,75 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                   key={inst.id} 
                   inst={inst} 
                   onToggle={() => onUpdateInstallment(debt.id, inst.id, inst.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED)}
-                  onEarlyPay={() => onUpdateInstallment(debt.id, inst.id, TransactionStatus.COMPLETED, true)}
+                  onEarlyPay={() => {
+                    setAnticipateInstallment(inst);
+                    setAnticipateAmount(inst.principal.toString());
+                  }}
                 />
               ))}
             </div>
           </div>
         </div>
+
+        {/* Anticipate Dialog */}
+        <AnimatePresence>
+          {anticipateInstallment && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800">Antecipar Parcela {anticipateInstallment.number}</h3>
+                  <button onClick={() => setAnticipateInstallment(null)} className="text-slate-400 hover:text-slate-600">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Valor Realmente Pago</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      autoFocus
+                      value={anticipateAmount}
+                      onChange={e => setAnticipateAmount(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-700"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Valor original: {formatCurrency(anticipateInstallment.amount)} (Principal: {formatCurrency(anticipateInstallment.principal)})
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => setAnticipateInstallment(null)}
+                    className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const amount = parseFloat(anticipateAmount);
+                      if (!isNaN(amount)) {
+                        onUpdateInstallment(debt.id, anticipateInstallment.id, TransactionStatus.COMPLETED, amount);
+                        setAnticipateInstallment(null);
+                      }
+                    }}
+                    className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
