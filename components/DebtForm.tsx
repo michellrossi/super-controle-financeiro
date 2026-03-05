@@ -8,6 +8,42 @@ import {
 import { toDateString, parseLocalDate } from '../utils/date';
 import { addMonths, addWeeks, addYears } from 'date-fns';
 
+const CurrencyInput: React.FC<{
+  label: string;
+  value: number;
+  onChange: (val: number) => void;
+  required?: boolean;
+  placeholder?: string;
+}> = ({ label, value, onChange, required, placeholder }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, '');
+    const numberValue = parseInt(rawValue || '0', 10) / 100;
+    onChange(numberValue);
+  };
+
+  const formattedValue = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</label>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
+        <input
+          type="text"
+          required={required}
+          value={formattedValue}
+          onChange={handleChange}
+          placeholder={placeholder || '0,00'}
+          className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-medium text-slate-700"
+        />
+      </div>
+    </div>
+  );
+};
+
 interface DebtFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -101,12 +137,22 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
       if (formData.interestSystem === InterestSystem.PRICE) {
         // Price System (Fixed Installments with interest)
         // PMT = PV * [i * (1 + i)^n] / [(1 + i)^n - 1]
-        const pmt = totalPrincipal * (rate * Math.pow(1 + rate, count)) / (Math.pow(1 + rate, count) - 1);
+        const pmt = rate === 0 
+          ? totalPrincipal / count 
+          : totalPrincipal * (rate * Math.pow(1 + rate, count)) / (Math.pow(1 + rate, count) - 1);
+        
         let remainingBalance = totalPrincipal;
 
         for (let i = 0; i < count; i++) {
           const interest = remainingBalance * rate;
-          const principal = pmt - interest;
+          let principal = pmt - interest;
+          
+          // Adjust last installment to avoid rounding errors
+          if (i === count - 1) {
+            principal = remainingBalance;
+          }
+          
+          const currentAmount = principal + interest;
           remainingBalance -= principal;
 
           let dueDate = addMonths(startDate, i);
@@ -117,7 +163,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
             id: crypto.randomUUID(),
             number: i + 1,
             dueDate: toDateString(dueDate),
-            amount: parseFloat(pmt.toFixed(2)),
+            amount: parseFloat(currentAmount.toFixed(2)),
             principal: parseFloat(principal.toFixed(2)),
             interest: parseFloat(interest.toFixed(2)),
             status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
@@ -132,8 +178,11 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
 
         for (let i = 0; i < count; i++) {
           const interest = remainingBalance * rate;
-          const amount = principalPerMonth + interest;
-          remainingBalance -= principalPerMonth;
+          
+          // Adjust last installment principal to avoid rounding errors
+          const currentPrincipal = i === count - 1 ? remainingBalance : principalPerMonth;
+          const amount = currentPrincipal + interest;
+          remainingBalance -= currentPrincipal;
 
           let dueDate = addMonths(startDate, i);
           if (formData.frequency === DebtFrequency.WEEKLY) dueDate = addWeeks(startDate, i);
@@ -144,7 +193,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
             number: i + 1,
             dueDate: toDateString(dueDate),
             amount: parseFloat(amount.toFixed(2)),
-            principal: parseFloat(principalPerMonth.toFixed(2)),
+            principal: parseFloat(currentPrincipal.toFixed(2)),
             interest: parseFloat(interest.toFixed(2)),
             status: i < paidBefore ? TransactionStatus.COMPLETED : TransactionStatus.PENDING,
             paidDate: i < paidBefore ? toDateString(dueDate) : null
@@ -299,18 +348,12 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor total original *</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      required
-                      value={formData.totalOriginalAmount || ''}
-                      onChange={e => setFormData({ ...formData, totalOriginalAmount: parseFloat(e.target.value) })}
-                      placeholder="0,00"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                    />
-                  </div>
+                  <CurrencyInput 
+                    label="Valor total original *"
+                    value={formData.totalOriginalAmount || 0}
+                    onChange={val => setFormData({ ...formData, totalOriginalAmount: val })}
+                    required
+                  />
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nº de parcelas *</label>
                     <input 
@@ -327,15 +370,11 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
 
                 {formData.format === DebtFormat.FIXED_INSTALLMENTS && (
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor da parcela *</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
+                    <CurrencyInput 
+                      label="Valor da parcela *"
+                      value={formData.installmentAmount || 0}
+                      onChange={val => setFormData({ ...formData, installmentAmount: val })}
                       required
-                      value={formData.installmentAmount || ''}
-                      onChange={e => setFormData({ ...formData, installmentAmount: parseFloat(e.target.value) })}
-                      placeholder="0,00"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
                     />
                     {formData.totalOriginalAmount && formData.installmentsCount && formData.installmentAmount ? (
                       <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
@@ -363,14 +402,19 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
                         <label className="flex items-center gap-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
                           Taxa de juros (%) <HelpCircle size={12} className="text-slate-300" />
                         </label>
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          value={formData.interestRate || ''}
-                          onChange={e => setFormData({ ...formData, interestRate: parseFloat(e.target.value) })}
-                          placeholder="2,5"
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                        />
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            value={new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(formData.interestRate || 0)}
+                            onChange={e => {
+                              const raw = e.target.value.replace(/\D/g, '');
+                              setFormData({ ...formData, interestRate: parseInt(raw || '0') / 100 });
+                            }}
+                            placeholder="2,50"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-medium text-slate-700"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo da taxa</label>

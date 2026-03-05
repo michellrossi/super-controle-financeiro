@@ -105,18 +105,42 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Progress & Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Parcelas</p>
-              <p className="text-sm font-bold text-slate-800">{stats?.paidCount}/{stats?.totalCount}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Valor Original</p>
+              <p className="text-sm font-bold text-slate-800">{formatCurrency(debt.totalOriginalAmount)}</p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
               <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Saldo Devedor</p>
               <p className="text-sm font-bold text-red-500">{formatCurrency(stats?.totalOutstanding || 0)}</p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
               <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Total Pago</p>
               <p className="text-sm font-bold text-emerald-500">{formatCurrency(stats?.totalPaid || 0)}</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Juros Pago</p>
+              <p className="text-sm font-bold text-amber-500">{formatCurrency(stats?.totalInterestPaid || 0)}</p>
+            </div>
+          </div>
+
+          {/* Metadata Info */}
+          <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Taxa</p>
+              <p className="text-xs font-bold text-slate-700">{debt.interestRate}% {debt.frequency === 'Mensal' ? 'a.m.' : 'a.a.'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Sistema</p>
+              <p className="text-xs font-bold text-slate-700">{debt.interestSystem?.split(' ')[0] || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Parcelas</p>
+              <p className="text-xs font-bold text-slate-700">{debt.installmentsCount}x</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Tipo</p>
+              <p className="text-xs font-bold text-slate-700">{debt.type}</p>
             </div>
           </div>
 
@@ -315,7 +339,10 @@ const InstallmentItem: React.FC<{ inst: DebtInstallment, onToggle: () => void, o
           {inst.number}
         </div>
         <div>
-          <p className="text-sm font-bold text-slate-800">{formatCurrency(inst.amount)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-slate-800">{formatCurrency(inst.amount)}</p>
+            <span className="text-[10px] text-slate-400 font-medium">({formatCurrency(inst.principal)} + {formatCurrency(inst.interest)})</span>
+          </div>
           <div className="flex items-center gap-2">
             <p className="text-[10px] text-slate-400">{format(parseLocalDate(inst.dueDate), 'dd/MM/yyyy')}</p>
             {isOverdue && <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Atrasada</span>}
