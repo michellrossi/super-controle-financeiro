@@ -35,7 +35,7 @@ export const CardsView: React.FC<CardsProps> = ({
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
-          // 2. Saldo Devedor Total (Soma de TODAS as parcelas que ainda não foram pagas)
+          // 2. Saldo Devedor Total (Todas as parcelas PENDENTES para cálculo do limite)
           const totalDebt = transactions
             .filter(t => 
               t.type === TransactionType.CARD_EXPENSE && 
@@ -44,50 +44,55 @@ export const CardsView: React.FC<CardsProps> = ({
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
-          const availableLimit = card.limit - totalDebt;
           const progress = Math.min((totalDebt / card.limit) * 100, 100);
+          const availableLimit = card.limit - totalDebt;
+
+          const bgColor = card.color; 
 
           return (
             <div 
               key={card.id} 
               onClick={() => onCardClick(card.id)}
-              className={`group relative overflow-hidden rounded-2xl shadow-lg transition-transform hover:-translate-y-1 cursor-pointer ${card.color} text-white`}
+              className={`group relative overflow-hidden rounded-2xl shadow-lg transition-transform hover:-translate-y-1 cursor-pointer ${bgColor} text-white`}
             >
               <div className="absolute top-0 right-0 p-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
 
               <div className="relative p-6 h-full flex flex-col justify-between min-h-[200px]">
+                
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-xl tracking-wide">{card.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs bg-white/20 px-2 py-0.5 rounded">Fech. {card.closingDay}</span>
-                      <span className="text-xs bg-white/20 px-2 py-0.5 rounded">Venc. {card.dueDay}</span>
-                    </div>
+                      <h3 className="font-bold text-xl tracking-wide">{card.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs bg-white/20 px-2 py-0.5 rounded">Fech. {card.closingDay}</span>
+                        <span className="text-xs bg-white/20 px-2 py-0.5 rounded">Venc. {card.dueDay}</span>
+                      </div>
                   </div>
                   
                   <div className="flex items-center bg-black/20 rounded-lg p-1 backdrop-blur-sm" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => onAddTransaction(card.id)} className="p-1.5 hover:bg-white/20 rounded-md transition-colors"><Plus size={16} /></button>
-                    <button onClick={() => onEditCard(card)} className="p-1.5 hover:bg-white/20 rounded-md transition-colors"><Edit2 size={16} /></button>
-                    <button onClick={() => onDeleteCard(card.id)} className="p-1.5 hover:bg-white/20 hover:text-red-300 rounded-md transition-colors"><Trash2 size={16} /></button>
+                      <button onClick={() => onAddTransaction(card.id)} className="p-1.5 hover:bg-white/20 rounded-md transition-colors" title="Adicionar"><Plus size={16} /></button>
+                      <button onClick={() => onEditCard(card)} className="p-1.5 hover:bg-white/20 rounded-md transition-colors" title="Editar"><Edit2 size={16} /></button>
+                      <button onClick={() => onDeleteCard(card.id)} className="p-1.5 hover:bg-white/20 hover:text-red-300 rounded-md transition-colors" title="Excluir"><Trash2 size={16} /></button>
                   </div>
                 </div>
 
                 <div className="space-y-4 mt-8">
-                  <div>
-                    <p className="text-xs text-white/80 uppercase tracking-wider font-semibold mb-1">Fatura Atual</p>
-                    <p className="text-3xl font-bold">{formatCurrency(invoiceTotal)}</p>
+                  <div className="flex justify-between items-end">
+                      <div>
+                          <p className="text-xs text-white/80 uppercase tracking-wider font-semibold mb-1">Fatura Atual</p>
+                          <p className="text-3xl font-bold">{formatCurrency(invoiceTotal)}</p>
+                      </div>
                   </div>
                   
                   <div className="space-y-1">
                     <div className="w-full bg-black/20 rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${progress > 90 ? 'bg-red-300' : 'bg-emerald-300'}`} 
-                        style={{ width: `${progress}%` }}
-                      ></div>
+                        <div 
+                          className={`h-full rounded-full ${progress > 90 ? 'bg-red-300' : 'bg-emerald-300'}`} 
+                          style={{ width: `${progress}%` }}
+                        ></div>
                     </div>
                     <div className="flex justify-between text-[10px] font-medium text-white/90 uppercase tracking-wide">
-                      <span>Disp: {formatCurrency(availableLimit)}</span>
-                      <span>Lim: {formatCurrency(card.limit)}</span>
+                        <span>Disp: {formatCurrency(availableLimit)}</span>
+                        <span>Lim: {formatCurrency(card.limit)}</span>
                     </div>
                   </div>
                 </div>
