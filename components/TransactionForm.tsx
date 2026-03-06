@@ -23,16 +23,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
   const [amountType, setAmountType] = useState<'total' | 'installment'>('installment');
   const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.COMPLETED);
 
+  // Helper to determine if we are strictly editing an existing item (has ID) 
+  // vs creating a new one (id is empty string or initialData is null)
   const isEditing = !!(initialData && initialData.id);
 
   useEffect(() => {
     if (initialData) {
       setDescription(initialData.description);
+      
+      // If it's a new transaction context (id is empty) and amount is 0, show empty string
       if (!initialData.id && initialData.amount === 0) {
           setAmount('');
       } else {
           setAmount(initialData.amount.toString());
       }
+
       setDate(initialData.date.split('T')[0]);
       setType(initialData.type);
       setCategory(initialData.category);
@@ -51,6 +56,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     setDate(new Date().toISOString().split('T')[0]);
     setType(TransactionType.EXPENSE);
     setCategory(EXPENSE_CATEGORIES[0]);
+    // Auto-select first card to avoid undefined cardId
     setCardId(cards.length > 0 ? cards[0].id : '');
     setStatus(TransactionStatus.COMPLETED);
     setInstallments(1);
@@ -59,11 +65,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
 
   const handleTypeChange = (newType: TransactionType) => {
       setType(newType);
+      // Update categories based on type
       if (newType === TransactionType.INCOME) {
           setCategory(INCOME_CATEGORIES[0]);
       } else {
           setCategory(EXPENSE_CATEGORIES[0]);
       }
+      
+      // If switching to CARD, ensure a card is selected
       if (newType === TransactionType.CARD_EXPENSE && !cardId && cards.length > 0) {
           setCardId(cards[0].id);
       }
@@ -73,25 +82,30 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     e.preventDefault();
     if (!description || !amount || !category) return;
 
+    // Safety check for Card Transactions
     if (type === TransactionType.CARD_EXPENSE && !cardId) {
         alert("Por favor, selecione um cartão.");
         return;
     }
 
+    // Construct date at NOON local time to avoid timezone offsets when saving
     const [y, m, d] = date.split('-').map(Number);
     const dateAtNoon = new Date(y, m - 1, d, 12, 0, 0);
 
+    // Construct object
     const newTransaction: Transaction = {
       id: initialData?.id || crypto.randomUUID(),
       description,
       amount: parseFloat(amount),
+      // Send just the YYYY-MM-DD string as "date" prop to generateInstallments
+      // generateInstallments in storage.ts will handle the parsing to Date object
       date: dateAtNoon.toISOString().split('T')[0], 
       type,
       category,
-      // Alterado para PENDING em cartões para bloquear o limite até o pagamento da fatura
-      status: type === TransactionType.CARD_EXPENSE ? TransactionStatus.PENDING : status,
+      status: type === TransactionType.CARD_EXPENSE ? TransactionStatus.COMPLETED : status,
     };
 
+    // Only add cardId if explicitly a CARD_EXPENSE
     if (type === TransactionType.CARD_EXPENSE) {
       newTransaction.cardId = cardId;
     }
@@ -105,6 +119,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Editar Transação' : 'Nova Transação'}>
         <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* Type Selection */}
           <div className="flex p-1 bg-slate-100 rounded-xl">
             {[
               { id: TransactionType.INCOME, label: 'Receita', color: 'bg-emerald-500 text-white' },
@@ -124,6 +140,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
             ))}
           </div>
 
+          {/* Description */}
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1">Descrição</label>
             <div className="relative">
@@ -139,6 +156,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
             </div>
           </div>
 
+          {/* Amount & Date */}
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1">Valor</label>
@@ -155,6 +173,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
                 />
               </div>
             </div>
+            {/* Expanded width for date to fit full info */}
             <div className="flex-1">
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Data</label>
                 <input
@@ -167,6 +186,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
             </div>
           </div>
 
+          {/* Category & Card Logic */}
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1">Categoria</label>
@@ -200,6 +220,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
             )}
           </div>
 
+          {/* Installments Logic - Show only if creating NEW transaction (no ID) */}
           {!isEditing && (
              <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <div className="flex gap-4 items-end">

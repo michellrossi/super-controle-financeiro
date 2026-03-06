@@ -44,7 +44,7 @@ export interface User {
   avatar?: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'INCOMES' | 'EXPENSES' | 'CARDS' | 'DEBTS';
+export type ViewState = 'DASHBOARD' | 'INCOMES' | 'EXPENSES' | 'CARDS';
 
 // Filter/Sort State
 export interface FilterState {
@@ -75,87 +75,19 @@ export const EXPENSE_CATEGORIES = [
   'Besteiras', 
   'Carro', 
   'Comemoração',
-  'Compras',
-  'Doações e Ofertas',
   'Educação',
   'Estudo', 
   'Farmácia',
   'Ifood',
-  'Impostos',
   'Investimento', 
   'Lazer', 
   'Lucas', 
   'Mercado', 
-  'Moradia',
   'Outros',
-  'Pet',
   'Pessoais', 
   'Presente', 
   'Saúde', 
-  'Serviços',
   'Transporte', 
   'Viagem',
-  'Viagens',
   'Vestuário'
 ].sort();
-
-export enum DebtType {
-  PERSONAL_LOAN = 'Empréstimo Pessoal',
-  INSTALLMENT_CARD = 'Cartão Parcelado',
-  FINANCING = 'Financiamento',
-  CONSORTIUM = 'Consórcio',
-  INFORMAL_DEBT = 'Dívida Informal',
-  OTHER = 'Outro'
-}
-
-export enum DebtFormat {
-  FIXED_INSTALLMENTS = 'Parcelas Fixas',
-  WITH_INTEREST = 'Com Taxa de Juros'
-}
-
-export enum InterestType {
-  SIMPLE = 'Simples',
-  COMPOUND = 'Composto'
-}
-
-export enum InterestSystem {
-  PRICE = 'Price (parcela fixa)',
-  SAC = 'SAC (parcela decrescente)'
-}
-
-export enum DebtFrequency {
-  MONTHLY = 'Mensal',
-  WEEKLY = 'Semanal',
-  BIWEEKLY = 'Quinzenal',
-  YEARLY = 'Anual'
-}
-
-export interface DebtInstallment {
-  id: string;
-  number: number;
-  dueDate: string;
-  amount: number;
-  principal: number;
-  interest: number;
-  status: TransactionStatus;
-  paidDate?: string;
-  transactionId?: string;
-}
-
-export interface Debt {
-  id: string;
-  name: string;
-  creditor?: string;
-  totalOriginalAmount: number;
-  installmentsCount: number;
-  interestRate?: number;
-  interestType?: InterestType;
-  interestSystem?: InterestSystem;
-  firstInstallmentDate: string;
-  frequency: DebtFrequency;
-  format: DebtFormat;
-  type: DebtType;
-  installmentAmount?: number;
-  observations?: string;
-  installments: DebtInstallment[];
-}

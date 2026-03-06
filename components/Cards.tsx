@@ -1,6 +1,6 @@
 import React from 'react';
-import { CreditCard, Transaction, TransactionType, TransactionStatus } from '../types';
-import { formatCurrency, getInvoiceMonth } from '../services/storage';
+import { CreditCard, Transaction, TransactionType } from '../types';
+import { formatCurrency, getInvoiceMonth, calculateAvailableLimit } from '../services/storage';
 import { isSameMonth } from 'date-fns';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 
@@ -26,7 +26,7 @@ export const CardsView: React.FC<CardsProps> = ({
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {cards.map(card => {
-          // 1. Total da Fatura do Mês Selecionado (Exibição principal)
+          // Calcular fatura do mês atual (para exibição)
           const invoiceTotal = transactions
             .filter(t => 
               t.type === TransactionType.CARD_EXPENSE && 
@@ -35,18 +35,12 @@ export const CardsView: React.FC<CardsProps> = ({
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
-          // 2. Saldo Devedor Total (Todas as parcelas PENDENTES para cálculo do limite)
-          const totalDebt = transactions
-            .filter(t => 
-              t.type === TransactionType.CARD_EXPENSE && 
-              t.cardId === card.id &&
-              t.status !== TransactionStatus.COMPLETED
-            )
-            .reduce((acc, t) => acc + t.amount, 0);
+          // CORREÇÃO BUG #1: Calcular limite disponível REAL considerando todas as parcelas
+          const availableLimit = calculateAvailableLimit(card, transactions);
 
-          const progress = Math.min((totalDebt / card.limit) * 100, 100);
-          const availableLimit = card.limit - totalDebt;
+          const progress = Math.min((invoiceTotal / card.limit) * 100, 100);
 
+          // Simple solid colors with distinct look
           const bgColor = card.color; 
 
           return (
