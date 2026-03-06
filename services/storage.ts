@@ -213,27 +213,26 @@ export const StorageService = {
   },
 
   // Batch Delete for Installments
-  deleteTransactionSeries: async (userId: string, groupId: string, startFromDate: string) => {
-     const q = query(
-      collection(db, "transactions"), 
-      where("userId", "==", userId),
-      where("installments.groupId", "==", groupId)
-    );
-    const snapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    const targetDate = parseLocalDate(startFromDate);
+  deleteTransactionSeries: async (userId: string, groupId: string, currentInstallment: number) => {
+  const q = query(
+    collection(db, "transactions"), 
+    where("userId", "==", userId),
+    where("installments.groupId", "==", groupId)
+  );
+  
+  const snapshot = await getDocs(q);
+  const batch = writeBatch(db);
 
-    snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const itemDate = parseLocalDate(data.date);
-        
-        if (itemDate >= targetDate) {
-            batch.delete(doc(db, "transactions", docSnap.id));
-        }
-    });
+  snapshot.docs.forEach(docSnap => {
+    const data = docSnap.data();
+    // Exclui apenas a parcela atual e as futuras (ex: se apagar a 3/10, apaga 3, 4, 5...)
+    if (data.installments && data.installments.current >= currentInstallment) {
+      batch.delete(doc(db, "transactions", docSnap.id));
+    }
+  });
 
-    await batch.commit();
-  },
+  await batch.commit();
+},
 
   toggleStatus: async (userId: string, t: Transaction) => {
     const newStatus = t.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED;

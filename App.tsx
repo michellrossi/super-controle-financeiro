@@ -298,24 +298,21 @@ function App() {
       confirmLabel: 'Sim',
       cancelLabel: 'Não',
       onConfirm: async () => {
-        if (txToDelete.installments?.groupId) {
-          showConfirm({
-            title: "Excluir Série?",
-            message: "Esta transação faz parte de um parcelamento. Deseja excluir TODAS as parcelas daqui para frente?",
-            type: 'danger',
-            confirmLabel: 'Sim',
-            cancelLabel: 'Não',
-            onConfirm: async () => {
-              await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.date);
-              fetchData(user.id);
-              setIsListModalOpen(false);
-            }
-          });
-        } else {
-          await StorageService.deleteTransaction(user.id, id);
-          fetchData(user.id);
-          setIsListModalOpen(false);
-        }
+        if (txToDelete?.installments?.groupId) {
+    const deleteSeries = window.confirm("Esta transação faz parte de um parcelamento. Deseja excluir TODAS as parcelas daqui para frente?");
+    if (deleteSeries) {
+        // Passamos o número da parcela atual para o serviço saber de onde começar a apagar
+        await StorageService.deleteTransactionSeries(
+          user.id, 
+          txToDelete.installments.groupId, 
+          txToDelete.installments.current
+        );
+    } else {
+        await StorageService.deleteTransaction(user.id, id);
+    }
+} else {
+    await StorageService.deleteTransaction(user.id, id);
+}
       }
     });
   };
