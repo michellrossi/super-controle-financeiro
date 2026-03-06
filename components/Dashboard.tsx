@@ -4,7 +4,7 @@ import { formatCurrency, getInvoiceMonth } from '../services/storage';
 import { TrendingUp, TrendingDown, Wallet, CreditCard as CreditCardIcon } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Cell, LabelList
+  BarChart, Bar
 } from 'recharts';
 import { format, subMonths, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -36,9 +36,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
     .filter(t => t.type !== TransactionType.INCOME && t.status === TransactionStatus.PENDING)
     .reduce((acc, t) => acc + t.amount, 0);
 
-  // 2. Dados do Gráfico de Histórico (Inalterado)
+  // 2. Gráfico: Histórico de 6 meses (Entradas vs Saídas)
   const historyData = Array.from({ length: 6 }).map((_, i) => {
     const d = subMonths(new Date(), 5 - i);
+    
     const monthIncome = allTransactions
         .filter(t => t.type === TransactionType.INCOME && isSameMonth(new Date(t.date), d))
         .reduce((sum, t) => sum + t.amount, 0);
@@ -65,7 +66,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
     };
   });
 
-  // 3. Dados por Categoria (Novo Formato de Barras)
+  // 3. Gráfico: Evolução de Faturas de Cartão (Restaurado)
+  const cardEvolutionData = Array.from({ length: 6 }).map((_, i) => {
+    const d = subMonths(new Date(), 5 - i);
+    let totalInvoice = 0;
+    allTransactions
+        .filter(t => t.type === TransactionType.CARD_EXPENSE && t.cardId)
+        .forEach(t => {
+            const card = cards.find(c => c.id === t.cardId);
+            if (card) {
+                const invoiceDate = getInvoiceMonth(new Date(t.date), card.closingDay);
+                if (isSameMonth(invoiceDate, d)) totalInvoice += t.amount;
+            }
+        });
+    return {
+        name: format(d, 'MMM', { locale: ptBR }).toUpperCase(),
+        Fatura: totalInvoice
+    };
+  });
+
+  // 4. Dados por Categoria (Lista com Barras horizontais)
   const categoryMap = new Map<string, number>();
   transactions
     .filter(t => t.type !== TransactionType.INCOME)
@@ -74,7 +94,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
     });
   
   const totalExpense = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0);
-
   const categoryData = Array.from(categoryMap.entries())
     .map(([name, value]) => ({ 
       name, 
@@ -102,6 +121,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
 
   return (
     <div className="space-y-6 animate-fade-in w-full">
+      {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard title="Receitas Recebidas" value={income - incomePending} sub={`Pendente: ${formatCurrency(incomePending)}`} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" borderColor="border-emerald-100" onClick={() => onViewDetails('INCOME')} />
         <StatCard title="Despesas Pagas" value={expenses - expensePending} sub={`Pendente: ${formatCurrency(expensePending)}`} icon={TrendingDown} color="text-rose-500" bg="bg-rose-50" borderColor="border-rose-100" onClick={() => onViewDetails('EXPENSE')} />
@@ -109,7 +129,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-        {/* Histórico */}
+        {/* Gráfico de Entradas vs Saídas */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0">
            <h3 className="text-lg font-bold text-slate-800 mb-6">Entradas vs Saídas (6 Meses)</h3>
            <div className="h-72 w-full">
@@ -130,7 +150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
            </div>
         </div>
 
-        {/* LISTA DE CATEGORIAS (IGUAL À IMAGEM) */}
+        {/* Lista de Categorias (Estilo solicitado anteriormente) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0">
            <h3 className="text-lg font-bold text-slate-800 mb-6">Gastos por Categoria</h3>
            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -145,29 +165,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-slate-900">{formatCurrency(item.value)}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                            {item.percent}%
-                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{item.percent}%</span>
                         </div>
                       </div>
-                      {/* Barra de Progresso */}
                       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${item.percent}%`, 
-                            backgroundColor: COLORS[idx % COLORS.length] 
-                          }}
-                        />
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.percent}%`, backgroundColor: COLORS[idx % COLORS.length] }} />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados no período</div>
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados</div>
               )}
            </div>
         </div>
+      </div>
+
+      {/* Evolução de Faturas (Recuperado) */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-w-0 w-full">
+         <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-100 rounded-lg text-indigo-600"><CreditCardIcon size={18} /></div>
+                <h3 className="text-lg font-bold text-slate-800">Evolução de Faturas de Cartão</h3>
+            </div>
+         </div>
+         <div className="h-64 w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={cardEvolutionData} barSize={32}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value: number) => formatCurrency(value)} />
+                  <Bar dataKey="Fatura" fill="#6366f1" radius={[4, 4, 0, 0]} />
+               </BarChart>
+             </ResponsiveContainer>
+         </div>
       </div>
     </div>
   );
