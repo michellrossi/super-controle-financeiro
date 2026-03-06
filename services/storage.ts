@@ -170,43 +170,43 @@ export const StorageService = {
   },
 
   // Batch Update for Installments
-  updateTransactionSeries: async (userId: string, groupId: string, baseTransaction: Transaction, startFromDate: string) => {
-    const q = query(
-      collection(db, "transactions"), 
-      where("userId", "==", userId),
-      where("installments.groupId", "==", groupId)
-    );
-    const snapshot = await getDocs(q);
-    const batch = writeBatch(db);
+  updateTransactionSeries: async (userId: string, groupId: string, baseTransaction: Transaction) => {
+  const q = query(
+    collection(db, "transactions"), 
+    where("userId", "==", userId),
+    where("installments.groupId", "==", groupId)
+  );
+  const snapshot = await getDocs(q);
+  const batch = writeBatch(db);
 
-    const newBaseDateObj = parseLocalDate(baseTransaction.date);
+  // Usamos a parcela atual como referência para calcular os meses das próximas
+  const anchorIdx = baseTransaction.installments?.current || 1;
+  const [ny, nm, nd] = baseTransaction.date.split('T')[0].split('-').map(Number);
+  const newBaseDateObj = new Date(ny, nm - 1, nd, 12, 0, 0);
 
-    const allDocs = snapshot.docs.map(d => ({ id: d.id, data: d.data() as Transaction }));
-    const sortedDocs = allDocs.sort((a, b) => (a.data.installments?.current || 0) - (b.data.installments?.current || 0));
+  snapshot.docs.forEach(docSnap => {
+    const data = docSnap.data() as Transaction;
+    const currentIdx = data.installments?.current || 1;
+    
+    // Atualiza apenas a parcela editada e as futuras
+    if (currentIdx >= anchorIdx) {
+      const ref = doc(db, "transactions", docSnap.id);
+      const monthOffset = currentIdx - anchorIdx;
+      const computedDate = addMonths(newBaseDateObj, monthOffset);
 
-    const anchorIndex = baseTransaction.installments?.current || 1;
+      batch.update(ref, {
+        description: baseTransaction.description,
+        amount: baseTransaction.amount,
+        category: baseTransaction.category,
+        type: baseTransaction.type,
+        cardId: baseTransaction.cardId || null,
+        date: computedDate.toISOString()
+      });
+    }
+  });
 
-    sortedDocs.forEach(docItem => {
-        const currentIdx = docItem.data.installments?.current || 1;
-        
-        if (currentIdx >= anchorIndex) {
-            const ref = doc(db, "transactions", docItem.id);
-            const monthOffset = currentIdx - anchorIndex;
-            const computedDate = addMonths(newBaseDateObj, monthOffset);
-
-            batch.update(ref, {
-                description: baseTransaction.description,
-                amount: baseTransaction.amount,
-                category: baseTransaction.category,
-                type: baseTransaction.type,
-                cardId: baseTransaction.cardId || null,
-                date: toDateString(computedDate)
-            });
-        }
-    });
-
-    await batch.commit();
-  },
+  await batch.commit();
+},
 
   deleteTransaction: async (userId: string, id: string) => {
     await deleteDoc(doc(db, "transactions", id));
