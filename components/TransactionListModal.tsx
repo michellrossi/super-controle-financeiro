@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Trash2, Calendar, DollarSign } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { motion, useAnimation, PanInfo } from 'framer-motion';
+import { parseLocalDate } from '../utils/date';
 
 interface TransactionListModalProps {
   isOpen: boolean;
@@ -16,14 +17,14 @@ interface TransactionListModalProps {
   onDelete?: (id: string) => void;
 }
 
-const TransactionListItem = ({ 
-  t, 
-  onEdit, 
-  onDelete 
-}: { 
+const TransactionListItem: React.FC<{ 
   t: Transaction; 
   onEdit?: (t: Transaction) => void; 
   onDelete?: (id: string) => void; 
+}> = ({ 
+  t, 
+  onEdit, 
+  onDelete 
 }) => {
   const controls = useAnimation();
   const [isOpen, setIsOpen] = useState(false);
@@ -94,7 +95,7 @@ const TransactionListItem = ({
       >
           {/* Left: Icon & Description */}
           <div className="flex items-center gap-3 flex-1 min-w-0 pointer-events-none">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
+              <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${iconColor}`}>
                 <CategoryIcon category={t.category} size={20} />
               </div>
               
@@ -103,7 +104,7 @@ const TransactionListItem = ({
                     {t.description}
                 </p>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <span>{format(new Date(t.date), 'dd/MM')}</span>
+                  <span>{format(parseLocalDate(t.date), 'dd/MM')}</span>
                   <span className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide truncate max-w-[100px]">
                     {t.category}
                   </span>
@@ -134,8 +135,8 @@ export const TransactionListModal: React.FC<TransactionListModalProps> = ({
   // Sort transactions based on user selection
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => {
-        const valA = sortBy === 'date' ? new Date(a.date).getTime() : a.amount;
-        const valB = sortBy === 'date' ? new Date(b.date).getTime() : b.amount;
+        const valA = sortBy === 'date' ? parseLocalDate(a.date).getTime() : a.amount;
+        const valB = sortBy === 'date' ? parseLocalDate(b.date).getTime() : b.amount;
 
         if (sortOrder === 'asc') {
             return valA - valB;

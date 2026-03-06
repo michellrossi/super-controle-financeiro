@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewState, User } from '../types';
-import { LayoutDashboard, CircleArrowUp, CircleArrowDown, CreditCard, LogOut } from 'lucide-react';
+import { LayoutDashboard, CircleArrowUp, CircleArrowDown, CreditCard, LogOut, TrendingDown } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -46,6 +46,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, 
           <NavIcon view="INCOMES" icon={CircleArrowUp} tooltip="Entradas" />
           <NavIcon view="EXPENSES" icon={CircleArrowDown} tooltip="Saídas" />
           <NavIcon view="CARDS" icon={CreditCard} tooltip="Cartões" />
+          <NavIcon view="DEBTS" icon={TrendingDown} tooltip="Dívidas" />
         </nav>
 
         <div className="absolute bottom-8 flex flex-col gap-4 items-center w-full">
@@ -75,6 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, 
             <NavIcon view="INCOMES" icon={CircleArrowUp} tooltip="Entradas" mobile />
             <NavIcon view="EXPENSES" icon={CircleArrowDown} tooltip="Saídas" mobile />
             <NavIcon view="CARDS" icon={CreditCard} tooltip="Cartões" mobile />
+            <NavIcon view="DEBTS" icon={TrendingDown} tooltip="Dívidas" mobile />
          </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { ArrowUp, ArrowDown, CreditCard, Edit2, Trash2, Calendar, DollarSign, Receipt } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { motion, useAnimation, PanInfo } from 'framer-motion';
+import { parseLocalDate } from '../utils/date';
 
 interface TransactionsProps {
   transactions: Transaction[];
@@ -16,16 +17,16 @@ interface TransactionsProps {
   onSortChange: (field: 'date' | 'amount') => void;
 }
 
-const TransactionItem = ({ 
-  t, 
-  onEdit, 
-  onDelete, 
-  onToggleStatus 
-}: { 
+const TransactionItem: React.FC<{ 
   t: Transaction; 
   onEdit: (t: Transaction) => void; 
   onDelete: (id: string) => void; 
   onToggleStatus: (id: string) => void;
+}> = ({ 
+  t, 
+  onEdit, 
+  onDelete, 
+  onToggleStatus 
 }) => {
   const controls = useAnimation();
   const [isOpen, setIsOpen] = useState(false);
@@ -33,7 +34,7 @@ const TransactionItem = ({
   const getStatusInfo = (t: Transaction) => {
      const isCompleted = t.status === TransactionStatus.COMPLETED;
      const today = startOfDay(new Date());
-     const txDate = startOfDay(new Date(t.date));
+     const txDate = startOfDay(parseLocalDate(t.date));
      const isOverdue = !isCompleted && isBefore(txDate, today);
 
      if (isCompleted) {
@@ -123,7 +124,7 @@ const TransactionItem = ({
       >
           {/* Left Section: Icon & Details */}
           <div className="flex items-center gap-4 w-full sm:w-auto min-w-0 pointer-events-none"> {/* pointer-events-none to prevent interfering with click */}
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
+              <div className={`w-12 h-12 flex items-center justify-center shrink-0 ${iconColor}`}>
                 {isVirtual ? <Receipt size={24} /> : <CategoryIcon category={t.category} size={24} />}
               </div>
 
@@ -133,7 +134,7 @@ const TransactionItem = ({
                     {isVirtual && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded uppercase shrink-0">Fatura</span>}
                 </span>
                 <div className="flex items-center flex-wrap gap-2 text-xs">
-                  <span className="text-slate-400 shrink-0">{format(new Date(t.date), 'dd/MM/yyyy')}</span>
+                  <span className="text-slate-400 shrink-0">{format(parseLocalDate(t.date), 'dd/MM/yyyy')}</span>
                   <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded text-slate-500 uppercase font-semibold text-[10px] tracking-wide truncate max-w-[140px]">
                     <CategoryIcon category={t.category} size={10} className="text-slate-400" />
                     <span className="truncate">{t.category}</span>
@@ -178,8 +179,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
   const filteredTransactions = useMemo(() => {
     return transactions.sort((a, b) => {
-        let valA = sortBy === 'date' ? new Date(a.date).getTime() : a.amount;
-        let valB = sortBy === 'date' ? new Date(b.date).getTime() : b.amount;
+        let valA = sortBy === 'date' ? parseLocalDate(a.date).getTime() : a.amount;
+        let valB = sortBy === 'date' ? parseLocalDate(b.date).getTime() : b.amount;
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       });
   }, [transactions, sortBy, sortOrder]);
