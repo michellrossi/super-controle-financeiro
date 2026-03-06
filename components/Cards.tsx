@@ -35,13 +35,19 @@ export const CardsView: React.FC<CardsProps> = ({
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
-          // 2. Saldo Devedor Total (Todas as parcelas PENDENTES para cálculo do limite)
+          // 2. Saldo Devedor (Parcelas deste mês em diante que ainda não foram pagas)
           const totalDebt = transactions
-            .filter(t => 
-              t.type === TransactionType.CARD_EXPENSE && 
-              t.cardId === card.id &&
-              t.status !== TransactionStatus.COMPLETED
-            )
+            .filter(t => {
+              if (t.type !== TransactionType.CARD_EXPENSE || t.cardId !== card.id) return false;
+              if (t.status === TransactionStatus.COMPLETED) return false;
+              
+              const invoiceDate = getInvoiceMonth(new Date(t.date), card.closingDay);
+              // Considera apenas parcelas do mês selecionado para frente
+              const invoiceMonthStart = new Date(invoiceDate.getFullYear(), invoiceDate.getMonth(), 1);
+              const targetMonthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+              
+              return invoiceMonthStart >= targetMonthStart;
+            })
             .reduce((acc, t) => acc + t.amount, 0);
 
           const progress = Math.min((totalDebt / card.limit) * 100, 100);
