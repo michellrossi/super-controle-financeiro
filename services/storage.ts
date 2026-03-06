@@ -1,5 +1,4 @@
-import { Transaction, CreditCard, TransactionType, TransactionStatus, User, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from '../types';
-import { parseLocalDate, toDateString } from '../utils/date';
+import { Transaction, CreditCard, TransactionType, TransactionStatus, User, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../types';
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { 
@@ -48,37 +47,102 @@ export const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
 
+// ✅ CORRIGIDO: Função agora retorna sempre o primeiro dia do mês para comparação consistente
 export const getInvoiceMonth = (date: Date, closingDay: number): Date => {
   const d = new Date(date);
   if (d.getDate() > closingDay) {
-    d.setMonth(d.getMonth() + 1);
+    // Retornar o primeiro dia do próximo mês para comparação consistente
+    return new Date(d.getFullYear(), d.getMonth() + 1, 1);
   }
-  return d;
+  // Retornar o primeiro dia do mês atual
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+};
+
+// ✅ NOVA FUNÇÃO: Calcula o limite disponível real do cartão
+/**
+ * Calcula o limite disponível real do cartão considerando:
+ * - Todas as parcelas futuras comprometidas (parcelamentos)
+ * - Compras únicas não parceladas
+ */
+export const calculateAvailableLimit = (
+  card: CreditCard, 
+  allTransactions: Transaction[]
+): number => {
+  // Agrupar parcelamentos por groupId para evitar contagem duplicada
+  const installmentGroups = new Map<string, {
+    amount: number,
+    current: number,
+    total: number
+  }>();
+
+  // Coletar informações de todas as parcelas
+  allTransactions
+    .filter(t => 
+      t.type === TransactionType.CARD_EXPENSE && 
+      t.cardId === card.id &&
+      t.installments
+    )
+    .forEach(t => {
+      if (t.installments) {
+        const existing = installmentGroups.get(t.installments.groupId);
+        
+        // Guardar sempre a primeira parcela (current = 1) que tem todas as informações
+        if (!existing || t.installments.current === 1) {
+          installmentGroups.set(t.installments.groupId, {
+            amount: t.amount,
+            current: t.installments.current,
+            total: t.installments.total
+          });
+        }
+      }
+    });
+
+  // Calcular total comprometido por parcelamentos
+  let totalCommitted = 0;
+  installmentGroups.forEach(group => {
+    // Total da compra = valor da parcela * número total de parcelas
+    const purchaseTotal = group.amount * group.total;
+    totalCommitted += purchaseTotal;
+  });
+
+  // Adicionar compras únicas (não parceladas) 
+  // Consideramos apenas compras futuras e do mês atual
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  
+  const singlePurchases = allTransactions
+    .filter(t => 
+      t.type === TransactionType.CARD_EXPENSE && 
+      t.cardId === card.id &&
+      !t.installments && // Sem parcelamento
+      new Date(t.date) >= currentMonthStart // Do mês atual em diante
+    )
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  totalCommitted += singlePurchases;
+
+  return Math.max(0, card.limit - totalCommitted);
 };
 
 // Helper to remove undefined keys which Firestore rejects
-const cleanPayload = (data: any): any => {
-  if (Array.isArray(data)) {
-    return data.map(item => cleanPayload(item));
-  }
-  if (data !== null && typeof data === 'object') {
-    return Object.entries(data).reduce((acc, [k, v]) => {
-      if (v !== undefined) {
-        acc[k] = cleanPayload(v);
-      }
-      return acc;
-    }, {} as any);
-  }
-  return data;
+const cleanPayload = (data: any) => {
+  return Object.entries(data).reduce((acc, [k, v]) => {
+    if (v !== undefined) {
+      acc[k] = v;
+    }
+    return acc;
+  }, {} as any);
 };
 
 export const generateInstallments = (baseTransaction: Transaction, totalInstallments: number, amountType: 'total' | 'installment' = 'installment'): Transaction[] => {
-  const baseDateObj = parseLocalDate(baseTransaction.date);
+  // Fix: Parse input date (YYYY-MM-DD string) explicitly to local time noon to avoid timezone rollovers
+  const [y, m, d] = baseTransaction.date.split('T')[0].split('-').map(Number);
+  const baseDateObj = new Date(y, m - 1, d, 12, 0, 0);
 
   if (totalInstallments <= 1) {
     return [{
         ...baseTransaction,
-        date: toDateString(baseDateObj)
+        date: baseDateObj.toISOString()
     }];
   }
 
@@ -97,7 +161,7 @@ export const generateInstallments = (baseTransaction: Transaction, totalInstallm
       ...baseTransaction,
       id: crypto.randomUUID(), // Temp ID
       amount: parseFloat(installmentValue.toFixed(2)),
-      date: toDateString(newDateObj), 
+      date: newDateObj.toISOString(), 
       installments: {
         current: i + 1,
         total: totalInstallments,
@@ -171,6 +235,7 @@ export const StorageService = {
 
   // Batch Update for Installments
   updateTransactionSeries: async (userId: string, groupId: string, baseTransaction: Transaction, startFromDate: string) => {
+    // 1. Find all transactions in the group belonging to user
     const q = query(
       collection(db, "transactions"), 
       where("userId", "==", userId),
@@ -179,18 +244,41 @@ export const StorageService = {
     const snapshot = await getDocs(q);
     const batch = writeBatch(db);
 
-    const newBaseDateObj = parseLocalDate(baseTransaction.date);
+    // This is the date of the SPECIFIC transaction being edited (the "start" of our update window)
+    const targetDateStr = startFromDate.split('T')[0];
+    
+    // Parse the NEW date from the form (baseTransaction.date)
+    const [ny, nm, nd] = baseTransaction.date.split('T')[0].split('-').map(Number);
+    const newBaseDateObj = new Date(ny, nm - 1, nd, 12, 0, 0);
 
+    // Get the installment index of the item being edited to calculate offsets
+    // We need to find the doc that corresponds to startFromDate (or the ID, but we passed date)
+    // Actually, relying on date string comparison can be tricky. Ideally we pass the edited ID.
+    // However, assuming logic: We update everything where installment.current >= edited.installment.current
+    
+    // Let's first map all docs to memory to sort and find the pivot
     const allDocs = snapshot.docs.map(d => ({ id: d.id, data: d.data() as Transaction }));
     const sortedDocs = allDocs.sort((a, b) => (a.data.installments?.current || 0) - (b.data.installments?.current || 0));
 
+    // Find the current installment index of the transaction that triggered the update
+    // We can identify it by matching the OLD date (targetDateStr) roughly, 
+    // BUT since we don't have the old date passed explicitly in a robust way if it changed, 
+    // we rely on the logic: The user clicked "Update Series" from a specific transaction.
+    // The "startFromDate" param passed is the OLD date of that transaction.
+    
+    // Better approach: Calculate offsets based on installment index relative to the NEW base date.
+    // Use the `baseTransaction.installments.current` as the anchor.
     const anchorIndex = baseTransaction.installments?.current || 1;
 
     sortedDocs.forEach(docItem => {
         const currentIdx = docItem.data.installments?.current || 1;
         
+        // Only update if this installment is equal to or after the one being edited
         if (currentIdx >= anchorIndex) {
             const ref = doc(db, "transactions", docItem.id);
+            
+            // Calculate new date for this specific installment
+            // Offset = currentIdx - anchorIndex (0 for the edited one, 1 for next, etc)
             const monthOffset = currentIdx - anchorIndex;
             const computedDate = addMonths(newBaseDateObj, monthOffset);
 
@@ -200,7 +288,8 @@ export const StorageService = {
                 category: baseTransaction.category,
                 type: baseTransaction.type,
                 cardId: baseTransaction.cardId || null,
-                date: toDateString(computedDate)
+                date: computedDate.toISOString() // Update date!
+                // Don't update installment numbers/ids
             });
         }
     });
@@ -221,12 +310,15 @@ export const StorageService = {
     );
     const snapshot = await getDocs(q);
     const batch = writeBatch(db);
-    const targetDate = parseLocalDate(startFromDate);
+    const targetDate = new Date(startFromDate);
 
     snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
-        const itemDate = parseLocalDate(data.date);
+        const itemDate = new Date(data.date);
         
+        // Delete if date is equal or after target
+        // Note: Compare timestamps or ISO strings to avoid timezone drift issues
+        // Simpler: Delete where installment.current >= current
         if (itemDate >= targetDate) {
             batch.delete(doc(db, "transactions", docSnap.id));
         }
@@ -274,30 +366,5 @@ export const StorageService = {
 
   deleteCard: async (userId: string, id: string) => {
     await deleteDoc(doc(db, "cards", id));
-  },
-
-  // --- Debts ---
-
-  getDebts: async (userId: string): Promise<Debt[]> => {
-    const q = query(collection(db, "debts"), where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
-  },
-
-  addDebt: async (userId: string, d: Debt) => {
-    const { id, ...data } = d;
-    const payload = cleanPayload({ ...data, userId });
-    await addDoc(collection(db, "debts"), payload);
-  },
-
-  updateDebt: async (userId: string, d: Debt) => {
-    const { id, ...data } = d;
-    const ref = doc(db, "debts", id);
-    const payload = cleanPayload(data);
-    await updateDoc(ref, payload);
-  },
-
-  deleteDebt: async (userId: string, id: string) => {
-    await deleteDoc(doc(db, "debts", id));
   }
 };
