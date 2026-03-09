@@ -145,11 +145,11 @@ const DebtListItem: React.FC<{ debt: Debt, onClick: () => void }> = ({ debt, onC
 
   const getIcon = (type: DebtType) => {
     switch (type) {
-      case DebtType.PERSONAL_LOAN: return '💰';
-      case DebtType.FINANCING: return '🏠';
-      case DebtType.CONSORTIUM: return '🤝';
-      case DebtType.INSTALLMENT_CARD: return '💳';
-      case DebtType.INFORMAL_DEBT: return '☝️';
+      case DebtType.CRÉDITO_PESSOAL: return '💰';
+      case DebtType.FINANCIAMENTO: return '🏠';
+      case DebtType.CONSÓRCIO: return '🤝';
+      case DebtType.DÍVIDAS_CARTÃO: return '💳';
+      case DebtType.DÍVIDAS_INFORMAIS: return '☝️';
       default: return '📄';
     }
   };
