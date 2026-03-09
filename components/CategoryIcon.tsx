@@ -1,9 +1,7 @@
 import React from 'react';
 import { 
-  Utensils, Home, Tv, Coffee, Car, PartyPopper, GraduationCap, 
-  HeartPulse, Pizza, TrendingUp, Gamepad2, ShoppingCart, 
-  MoreHorizontal, User, Gift, Bus, Plane, Shirt, 
-  Banknote, Wallet, Coins, History, Briefcase, Zap, Smartphone, Tag
+  Utensils, Car, Heart, Stethoscope, GraduationCap, Home, Shirt, 
+  PlayCircle, Package, Wallet, TrendingUp, Gift, HelpCircle 
 } from 'lucide-react';
 
 interface CategoryIconProps {
@@ -12,62 +10,21 @@ interface CategoryIconProps {
   className?: string;
 }
 
-export const CategoryIcon: React.FC<CategoryIconProps> = ({ category, size = 16, className = "" }) => {
-  const getEmoji = () => {
-    switch (category) {
-      // Despesas
-      case 'Alimentação': return '🍔';
-      case 'Apê':
-      case 'Moradia': return '🏠';
-      case 'Assinaturas': return '📱';
-      case 'Besteiras': return '🍕';
-      case 'Carro':
-      case 'Transporte': return '🚗';
-      case 'Comemoração': return '🥳';
-      case 'Educação':
-      case 'Estudo': return '📚';
-      case 'Farmácia':
-      case 'Saúde': return '💊';
-      case 'Ifood': return '🥡';
-      case 'Investimento':
-      case 'Investimentos': return '📈';
-      case 'Lazer': return '🎮';
-      case 'Mercado':
-      case 'Compras': return '🛍️';
-      case 'Pessoais':
-      case 'Lucas': return '👤';
-      case 'Presente': return '🎁';
-      case 'Viagem':
-      case 'Viagens': return '✈️';
-      case 'Vestuário': return '👕';
-      case 'Serviços': return '💡';
-      case 'Impostos': return '📋';
-      case 'Doações e Ofertas': return '🙌';
-      case 'Pet': return '🐾';
-      
-      // Receitas
-      case 'Salário': return '💰';
-      case 'Bonificação':
-      case '13°': return '🧧';
-      case 'Empréstimo': return '🤝';
-      case 'Vale Alimentação':
-      case 'Vale Refeição': return '🍱';
-      case 'Saldo Anterior': return '🔙';
-      case 'ISK': return '💼';
-      case 'Periculosidade': return '⚠️';
-      
-      default: return '🏷️';
-    }
+export const CategoryIcon: React.FC<CategoryIconProps> = ({ category, size = 20, className = "" }) => {
+  const iconMap: Record<string, React.ReactNode> = {
+    'Alimentação': <Utensils size={size} className={className} />,
+    'Transporte': <Car size={size} className={className} />,
+    'Lazer': <Heart size={size} className={className} />,
+    'Saúde': <Stethoscope size={size} className={className} />,
+    'Educação': <GraduationCap size={size} className={className} />,
+    'Moradia': <Home size={size} className={className} />,
+    'Vestuário': <Shirt size={size} className={className} />,
+    'Assinaturas': <PlayCircle size={size} className={className} />,
+    'Outros': <Package size={size} className={className} />,
+    'Salário': <Wallet size={size} className={className} />,
+    'Investimentos': <TrendingUp size={size} className={className} />,
+    'Presente': <Gift size={size} className={className} />,
   };
 
-  const emoji = getEmoji();
-
-  return (
-    <span 
-      className={`inline-flex items-center justify-center ${className}`} 
-      style={{ fontSize: `${size}px`, lineHeight: 1 }}
-    >
-      {emoji}
-    </span>
-  );
+  return iconMap[category] || <HelpCircle size={size} className={className} />;
 };

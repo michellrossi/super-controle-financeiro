@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Debt, DebtInstallment, TransactionStatus } from '../types';
+import { Debt, DebtInstallment, TransactionStatus, DebtFrequency } from '../types';
 import { formatCurrency } from '../services/storage';
 import { X, CheckCircle2, Clock, AlertCircle, Calculator, Trash2, Edit2, TrendingDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -170,7 +170,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
           <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Taxa</p>
-              <p className="text-xs font-bold text-slate-700">{(debt.interestRate || 0).toFixed(2)}% {debt.frequency === 'Mensal' ? 'a.m.' : 'a.a.'}</p>
+              <p className="text-xs font-bold text-slate-700">{(debt.interestRate || 0).toFixed(2)}% {debt.frequency === DebtFrequency.MONTHLY ? 'a.m.' : 'a.a.'}</p>
             </div>
             <div>
               <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Sistema</p>

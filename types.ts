@@ -1,4 +1,3 @@
-
 export enum TransactionType {
   INCOME = 'INCOME',
   EXPENSE = 'EXPENSE',
@@ -6,9 +5,25 @@ export enum TransactionType {
 }
 
 export enum TransactionStatus {
-  PENDING = 'PENDING',
   COMPLETED = 'COMPLETED',
-  OVERDUE = 'OVERDUE'
+  PENDING = 'PENDING'
+}
+
+export interface Transaction {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  type: TransactionType;
+  category: string;
+  status: TransactionStatus;
+  cardId?: string;
+  isVirtual?: boolean;
+  installments?: {
+    current: number;
+    total: number;
+    groupId: string;
+  };
 }
 
 export interface CreditCard {
@@ -20,23 +35,6 @@ export interface CreditCard {
   color: string;
 }
 
-export interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  date: string; // ISO String YYYY-MM-DD
-  type: TransactionType;
-  category: string;
-  status: TransactionStatus;
-  cardId?: string; // If CARD_EXPENSE
-  installments?: {
-    current: number;
-    total: number;
-    groupId: string;
-  };
-  isVirtual?: boolean; // For aggregated invoice display
-}
-
 export interface User {
   id: string;
   name: string;
@@ -46,88 +44,47 @@ export interface User {
 
 export type ViewState = 'DASHBOARD' | 'INCOMES' | 'EXPENSES' | 'CARDS' | 'DEBTS';
 
-// Filter/Sort State
 export interface FilterState {
-  month: number; // 0-11
+  month: number;
   year: number;
   sortBy: 'date' | 'amount';
   sortOrder: 'asc' | 'desc';
 }
 
-export const INCOME_CATEGORIES = [
-  '13°', 
-  'Bonificação', 
-  'Empréstimo',
-  'Investimentos',
-  'ISK', 
-  'Outros',
-  'Periculosidade', 
-  'Salário', 
-  'Saldo Anterior', 
-  'Vale Alimentação', 
-  'Vale Refeição'
-].sort();
-
-export const EXPENSE_CATEGORIES = [
-  'Alimentação', 
-  'Apê', 
-  'Assinaturas', 
-  'Besteiras', 
-  'Carro', 
-  'Comemoração',
-  'Compras',
-  'Doações e Ofertas',
-  'Educação',
-  'Estudo', 
-  'Farmácia',
-  'Ifood',
-  'Impostos',
-  'Investimento', 
-  'Lazer', 
-  'Lucas', 
-  'Mercado', 
-  'Moradia',
-  'Outros',
-  'Pet',
-  'Pessoais', 
-  'Presente', 
-  'Saúde', 
-  'Serviços',
-  'Transporte', 
-  'Viagem',
-  'Viagens',
-  'Vestuário'
-].sort();
-
 export enum DebtType {
-  PERSONAL_LOAN = 'Empréstimo Pessoal',
-  INSTALLMENT_CARD = 'Cartão Parcelado',
-  FINANCING = 'Financiamento',
-  CONSORTIUM = 'Consórcio',
-  INFORMAL_DEBT = 'Dívida Informal',
-  OTHER = 'Outro'
+  LOAN = 'LOAN',
+  FINANCING = 'FINANCING',
+  OTHER = 'OTHER',
+  PERSONAL_LOAN = 'PERSONAL_LOAN',
+  CONSORTIUM = 'CONSORTIUM',
+  INSTALLMENT_CARD = 'INSTALLMENT_CARD',
+  INFORMAL_DEBT = 'INFORMAL_DEBT'
 }
 
 export enum DebtFormat {
-  FIXED_INSTALLMENTS = 'Parcelas Fixas',
-  WITH_INTEREST = 'Com Taxa de Juros'
+  INSTALLMENTS = 'INSTALLMENTS',
+  SINGLE_PAYMENT = 'SINGLE_PAYMENT',
+  FIXED_INSTALLMENTS = 'FIXED_INSTALLMENTS',
+  WITH_INTEREST = 'WITH_INTEREST'
 }
 
 export enum InterestType {
-  SIMPLE = 'Simples',
-  COMPOUND = 'Composto'
+  PERCENTAGE = 'PERCENTAGE',
+  FIXED = 'FIXED',
+  COMPOUND = 'COMPOUND'
 }
 
 export enum InterestSystem {
-  PRICE = 'Price (parcela fixa)',
-  SAC = 'SAC (parcela decrescente)'
+  SIMPLE = 'SIMPLE',
+  COMPOUND = 'COMPOUND',
+  NONE = 'NONE',
+  PRICE = 'PRICE'
 }
 
 export enum DebtFrequency {
-  MONTHLY = 'Mensal',
-  WEEKLY = 'Semanal',
-  BIWEEKLY = 'Quinzenal',
-  YEARLY = 'Anual'
+  MONTHLY = 'MONTHLY',
+  WEEKLY = 'WEEKLY',
+  YEARLY = 'YEARLY'
 }
 
 export interface DebtInstallment {
@@ -138,24 +95,49 @@ export interface DebtInstallment {
   principal: number;
   interest: number;
   status: TransactionStatus;
-  paidDate?: string;
-  transactionId?: string;
+  paidDate?: string | null;
 }
 
 export interface Debt {
   id: string;
   name: string;
-  creditor?: string;
+  creditor: string;
+  totalAmount: number;
   totalOriginalAmount: number;
+  principal: number;
+  interestTotal: number;
+  interestRate: number;
   installmentsCount: number;
-  interestRate?: number;
-  interestType?: InterestType;
-  interestSystem?: InterestSystem;
+  startDate: string;
   firstInstallmentDate: string;
-  frequency: DebtFrequency;
-  format: DebtFormat;
   type: DebtType;
-  installmentAmount?: number;
-  observations?: string;
+  format: DebtFormat;
+  interestType: InterestType;
+  interestValue: number;
+  interestSystem: InterestSystem;
+  frequency: DebtFrequency;
   installments: DebtInstallment[];
+  status: TransactionStatus;
+  description?: string;
+  observations?: string;
+  installmentAmount?: number;
 }
+
+export const INCOME_CATEGORIES = [
+  'Salário',
+  'Investimentos',
+  'Presente',
+  'Outros'
+];
+
+export const EXPENSE_CATEGORIES = [
+  'Alimentação',
+  'Transporte',
+  'Lazer',
+  'Saúde',
+  'Educação',
+  'Moradia',
+  'Vestuário',
+  'Assinaturas',
+  'Outros'
+];

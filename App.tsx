@@ -11,8 +11,8 @@ import { DebtForm } from './components/DebtForm';
 import { DebtDetailsModal } from './components/DebtDetailsModal';
 import { StorageService, generateInstallments, getInvoiceMonth } from './services/storage';
 import { User, Transaction, ViewState, FilterState, CreditCard, TransactionType, TransactionStatus, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from './types';
-import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut, TrendingDown } from 'lucide-react';
-import { format, isSameMonth, startOfDay, differenceInMonths, differenceInWeeks, differenceInYears } from 'date-fns';
+import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut } from 'lucide-react';
+import { format, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate, toDateString } from './utils/date';
 import { ConfirmModal } from './components/ui/ConfirmModal';
@@ -60,6 +60,7 @@ function App() {
     title: string;
     message: string;
     onConfirm: () => void;
+    onCancel?: () => void;
     type?: 'danger' | 'warning' | 'info';
     confirmLabel?: string;
     cancelLabel?: string;
@@ -176,7 +177,7 @@ function App() {
     setAuthError('');
     try {
       await StorageService.loginEmail(loginEmail, loginPass);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAuthError('Erro ao fazer login. Verifique suas credenciais.');
     }
   };
@@ -186,7 +187,7 @@ function App() {
     setAuthError('');
     try {
       await StorageService.registerEmail(loginEmail, loginPass, regName);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAuthError('Erro ao criar conta. Tente novamente.');
     }
   };
@@ -195,7 +196,7 @@ function App() {
     setAuthError('');
     try {
       await StorageService.loginGoogle();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAuthError('Erro no login com Google.');
     }
   };
@@ -244,30 +245,25 @@ function App() {
          showConfirm({
            title: "Atualizar Série?",
            message: "Esta transação faz parte de um parcelamento. Deseja aplicar as alterações para todas as parcelas futuras desta série?",
+           confirmLabel: "Sim, todas",
+           cancelLabel: "Não, apenas esta",
            onConfirm: async () => {
               if (!user) return;
-              await StorageService.updateTransactionSeries(user.id, editingTransaction.installments!.groupId, t, editingTransaction.date);
+              await StorageService.updateTransactionSeries(user.id, editingTransaction.installments!.groupId, t);
               fetchData(user.id);
+              setIsTxModalOpen(false);
+           },
+           onCancel: async () => {
+              if (!user) return;
+              await StorageService.updateTransaction(user.id, t);
+              fetchData(user.id);
+              setIsTxModalOpen(false);
            }
          });
-         
-         // We also need to handle the "No" case which is updating only this one
-         // But since our ConfirmModal is Sim/Não, we might need a more complex logic if "Não" means "Update only this one"
-         // Actually, the user said "opção sim ou nao". 
-         // If they click "Não" (cancel), it currently just closes.
-         // Let's adjust handleTransactionSubmit to handle the single update if they choose "Não" for series.
-         
-         // Wait, the user wants "Sim" or "Não" for the series update.
-         // If "Não", it should probably just update the single one.
-         
-         // I'll modify the logic to update single one first, then ask about series? 
-         // No, that's confusing.
-         
-         // Let's use the ConfirmModal where "Sim" = Series, "Não" = Single.
-         // I'll update ConfirmModal to support this.
       } else {
          await StorageService.updateTransaction(user.id, t);
          fetchData(user.id);
+         setIsTxModalOpen(false);
       }
     } else {
       // CREATE LOGIC
@@ -276,6 +272,7 @@ function App() {
         await StorageService.addTransaction(user.id, tx);
       }
       fetchData(user.id);
+      setIsTxModalOpen(false);
     }
   };
 
@@ -303,10 +300,16 @@ function App() {
             title: "Excluir Série?",
             message: "Esta transação faz parte de um parcelamento. Deseja excluir TODAS as parcelas daqui para frente?",
             type: 'danger',
-            confirmLabel: 'Sim',
-            cancelLabel: 'Não',
+            confirmLabel: 'Sim, todas',
+            cancelLabel: 'Não, apenas esta',
             onConfirm: async () => {
-              await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.date);
+              await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.installments!.current);
+              fetchData(user.id);
+              setIsListModalOpen(false);
+            },
+            // Se clicar em "Não, apenas esta" (cancelLabel), excluímos apenas a atual
+            onCancel: async () => {
+              await StorageService.deleteTransaction(user.id, id);
               fetchData(user.id);
               setIsListModalOpen(false);
             }
@@ -759,6 +762,7 @@ function App() {
         isOpen={confirmConfig.isOpen}
         onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
         onConfirm={confirmConfig.onConfirm}
+        onCancel={confirmConfig.onCancel}
         title={confirmConfig.title}
         message={confirmConfig.message}
         type={confirmConfig.type}

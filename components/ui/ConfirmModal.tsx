@@ -6,6 +6,7 @@ interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onCancel?: () => void;
   title: string;
   message: string;
   confirmLabel?: string;
@@ -17,6 +18,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  onCancel,
   title,
   message,
   confirmLabel = 'Sim',
@@ -47,7 +49,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
         <div className="flex gap-3 w-full">
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (onCancel) onCancel();
+              onClose();
+            }}
             className="flex-1 py-3 px-4 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all active:scale-95"
           >
             {cancelLabel}
