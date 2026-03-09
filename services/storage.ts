@@ -25,7 +25,7 @@ import {
   getDocs,
   writeBatch
 } from "firebase/firestore";
-import { addMonths } from 'date-fns';
+import { addMonths, isBefore, startOfMonth } from 'date-fns';
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -54,6 +54,26 @@ export const getInvoiceMonth = (date: Date, closingDay: number): Date => {
     d.setMonth(d.getMonth() + 1);
   }
   return d;
+};
+
+/**
+ * Calcula o saldo devedor total de um cartão em relação a um mês específico.
+ * Considera todas as transações de cartão que pertencem à fatura do mês alvo ou faturas futuras.
+ */
+export const getRemainingDebtForMonth = (transactions: Transaction[], card: CreditCard, targetMonth: Date): number => {
+  const startOfTarget = startOfMonth(targetMonth);
+  
+  return transactions
+    .filter(t => {
+      if (t.type !== TransactionType.CARD_EXPENSE || t.cardId !== card.id) return false;
+      
+      const invoiceMonth = getInvoiceMonth(new Date(t.date), card.closingDay);
+      const startOfInvoice = startOfMonth(invoiceMonth);
+      
+      // O saldo devedor no mês X é a soma de tudo que vence no mês X e nos meses seguintes
+      return !isBefore(startOfInvoice, startOfTarget);
+    })
+    .reduce((acc, t) => acc + t.amount, 0);
 };
 
 // Helper to remove undefined keys which Firestore rejects
@@ -169,70 +189,65 @@ export const StorageService = {
     await updateDoc(ref, payload);
   },
 
-  // Batch Update for Installments
   updateTransactionSeries: async (userId: string, groupId: string, baseTransaction: Transaction) => {
-  const q = query(
-    collection(db, "transactions"), 
-    where("userId", "==", userId),
-    where("installments.groupId", "==", groupId)
-  );
-  const snapshot = await getDocs(q);
-  const batch = writeBatch(db);
+    const q = query(
+      collection(db, "transactions"), 
+      where("userId", "==", userId),
+      where("installments.groupId", "==", groupId)
+    );
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
 
-  // Usamos a parcela atual como referência para calcular os meses das próximas
-  const anchorIdx = baseTransaction.installments?.current || 1;
-  const [ny, nm, nd] = baseTransaction.date.split('T')[0].split('-').map(Number);
-  const newBaseDateObj = new Date(ny, nm - 1, nd, 12, 0, 0);
+    const anchorIdx = baseTransaction.installments?.current || 1;
+    const [ny, nm, nd] = baseTransaction.date.split('T')[0].split('-').map(Number);
+    const newBaseDateObj = new Date(ny, nm - 1, nd, 12, 0, 0);
 
-  snapshot.docs.forEach(docSnap => {
-    const data = docSnap.data() as Transaction;
-    const currentIdx = data.installments?.current || 1;
-    
-    // Atualiza apenas a parcela editada e as futuras
-    if (currentIdx >= anchorIdx) {
-      const ref = doc(db, "transactions", docSnap.id);
-      const monthOffset = currentIdx - anchorIdx;
-      const computedDate = addMonths(newBaseDateObj, monthOffset);
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data() as Transaction;
+      const currentIdx = data.installments?.current || 1;
+      
+      if (currentIdx >= anchorIdx) {
+        const ref = doc(db, "transactions", docSnap.id);
+        const monthOffset = currentIdx - anchorIdx;
+        const computedDate = addMonths(newBaseDateObj, monthOffset);
 
-      batch.update(ref, {
-        description: baseTransaction.description,
-        amount: baseTransaction.amount,
-        category: baseTransaction.category,
-        type: baseTransaction.type,
-        cardId: baseTransaction.cardId || null,
-        date: computedDate.toISOString()
-      });
-    }
-  });
+        batch.update(ref, {
+          description: baseTransaction.description,
+          amount: baseTransaction.amount,
+          category: baseTransaction.category,
+          type: baseTransaction.type,
+          cardId: baseTransaction.cardId || null,
+          date: computedDate.toISOString()
+        });
+      }
+    });
 
-  await batch.commit();
-},
+    await batch.commit();
+  },
 
   deleteTransaction: async (userId: string, id: string) => {
     await deleteDoc(doc(db, "transactions", id));
   },
 
-  // Batch Delete for Installments
   deleteTransactionSeries: async (userId: string, groupId: string, currentInstallment: number) => {
-  const q = query(
-    collection(db, "transactions"), 
-    where("userId", "==", userId),
-    where("installments.groupId", "==", groupId)
-  );
-  
-  const snapshot = await getDocs(q);
-  const batch = writeBatch(db);
+    const q = query(
+      collection(db, "transactions"), 
+      where("userId", "==", userId),
+      where("installments.groupId", "==", groupId)
+    );
+    
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
 
-  snapshot.docs.forEach(docSnap => {
-    const data = docSnap.data();
-    // Exclui apenas a parcela atual e as futuras (ex: se apagar a 3/10, apaga 3, 4, 5...)
-    if (data.installments && data.installments.current >= currentInstallment) {
-      batch.delete(doc(db, "transactions", docSnap.id));
-    }
-  });
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.installments && data.installments.current >= currentInstallment) {
+        batch.delete(doc(db, "transactions", docSnap.id));
+      }
+    });
 
-  await batch.commit();
-},
+    await batch.commit();
+  },
 
   toggleStatus: async (userId: string, t: Transaction) => {
     const newStatus = t.status === TransactionStatus.COMPLETED ? TransactionStatus.PENDING : TransactionStatus.COMPLETED;
@@ -240,7 +255,6 @@ export const StorageService = {
     await updateDoc(ref, { status: newStatus });
   },
 
-  // Batch toggle status (used for Invoice Payment)
   batchUpdateStatus: async (userId: string, transactionIds: string[], newStatus: TransactionStatus) => {
     const batch = writeBatch(db);
     transactionIds.forEach(id => {

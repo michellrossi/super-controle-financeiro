@@ -1,6 +1,6 @@
 import React from 'react';
 import { CreditCard, Transaction, TransactionType, TransactionStatus } from '../types';
-import { formatCurrency, getInvoiceMonth } from '../services/storage';
+import { formatCurrency, getInvoiceMonth, getRemainingDebtForMonth } from '../services/storage';
 import { isSameMonth } from 'date-fns';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 
@@ -35,17 +35,14 @@ export const CardsView: React.FC<CardsProps> = ({
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
-          // 2. Saldo Devedor Total (Todas as parcelas PENDENTES para cálculo do limite)
-          const totalDebt = transactions
-            .filter(t => 
-              t.type === TransactionType.CARD_EXPENSE && 
-              t.cardId === card.id &&
-              t.status !== TransactionStatus.COMPLETED
-            )
-            .reduce((acc, t) => acc + t.amount, 0);
+          // 2. Saldo Devedor Dinâmico: 
+          // Considera todas as parcelas que vencem no mês selecionado ou no futuro.
+          // À medida que o usuário avança os meses, parcelas passadas deixam de ser contadas,
+          // simulando o "restabelecimento" do limite.
+          const currentRemainingDebt = getRemainingDebtForMonth(transactions, card, targetDate);
 
-          const progress = Math.min((totalDebt / card.limit) * 100, 100);
-          const availableLimit = card.limit - totalDebt;
+          const progress = Math.min((currentRemainingDebt / card.limit) * 100, 100);
+          const availableLimit = card.limit - currentRemainingDebt;
 
           const bgColor = card.color; 
 
