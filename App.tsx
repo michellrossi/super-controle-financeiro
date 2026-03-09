@@ -177,7 +177,7 @@ function App() {
     setAuthError('');
     try {
       await StorageService.loginEmail(loginEmail, loginPass);
-    } catch (error: unknown) {
+    } catch {
       setAuthError('Erro ao fazer login. Verifique suas credenciais.');
     }
   };
@@ -187,7 +187,7 @@ function App() {
     setAuthError('');
     try {
       await StorageService.registerEmail(loginEmail, loginPass, regName);
-    } catch (error: unknown) {
+    } catch {
       setAuthError('Erro ao criar conta. Tente novamente.');
     }
   };
@@ -196,7 +196,7 @@ function App() {
     setAuthError('');
     try {
       await StorageService.loginGoogle();
-    } catch (error: unknown) {
+    } catch {
       setAuthError('Erro no login com Google.');
     }
   };
@@ -276,17 +276,14 @@ function App() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (txToDelete: Transaction) => {
     if (!user) return;
     
     // Block deleting virtual transactions
-    if (id.startsWith('virtual-invoice')) {
+    if (txToDelete.id.startsWith('virtual-invoice')) {
       alert("Para alterar o valor da fatura, edite ou exclua as transações individuais na aba 'Cartões'.");
       return;
     }
-
-    const txToDelete = transactions.find(t => t.id === id);
-    if (!txToDelete) return;
 
     showConfirm({
       title: 'Excluir Transação?',
@@ -309,13 +306,13 @@ function App() {
             },
             // Se clicar em "Não, apenas esta" (cancelLabel), excluímos apenas a atual
             onCancel: async () => {
-              await StorageService.deleteTransaction(user.id, id);
+              await StorageService.deleteTransaction(user.id, txToDelete.id);
               fetchData(user.id);
               setIsListModalOpen(false);
             }
           });
         } else {
-          await StorageService.deleteTransaction(user.id, id);
+          await StorageService.deleteTransaction(user.id, txToDelete.id);
           fetchData(user.id);
           setIsListModalOpen(false);
         }

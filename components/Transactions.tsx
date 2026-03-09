@@ -12,7 +12,7 @@ interface TransactionsProps {
   transactions: Transaction[];
   filter: FilterState;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: string) => void;
+  onDelete: (t: Transaction) => void;
   onToggleStatus: (id: string) => void;
   onSortChange: (field: 'date' | 'amount') => void;
 }
@@ -20,7 +20,7 @@ interface TransactionsProps {
 const TransactionItem: React.FC<{ 
   t: Transaction; 
   onEdit: (t: Transaction) => void; 
-  onDelete: (id: string) => void; 
+  onDelete: (t: Transaction) => void; 
   onToggleStatus: (id: string) => void;
 }> = ({ 
   t, 
@@ -102,7 +102,7 @@ const TransactionItem: React.FC<{
             <button 
                 onClick={(e) => {
                     e.stopPropagation();
-                    onDelete(t.id);
+                    onDelete(t);
                 }} 
                 className="w-full h-full flex items-center justify-center text-white"
             >
@@ -179,8 +179,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
   const filteredTransactions = useMemo(() => {
     return transactions.sort((a, b) => {
-        let valA = sortBy === 'date' ? parseLocalDate(a.date).getTime() : a.amount;
-        let valB = sortBy === 'date' ? parseLocalDate(b.date).getTime() : b.amount;
+        const valA = sortBy === 'date' ? parseLocalDate(a.date).getTime() : a.amount;
+        const valB = sortBy === 'date' ? parseLocalDate(b.date).getTime() : b.amount;
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       });
   }, [transactions, sortBy, sortOrder]);

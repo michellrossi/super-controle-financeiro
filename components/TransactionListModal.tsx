@@ -14,13 +14,13 @@ interface TransactionListModalProps {
   title: string;
   transactions: Transaction[];
   onEdit?: (t: Transaction) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (t: Transaction) => void;
 }
 
 const TransactionListItem: React.FC<{ 
   t: Transaction; 
   onEdit?: (t: Transaction) => void; 
-  onDelete?: (id: string) => void; 
+  onDelete?: (t: Transaction) => void; 
 }> = ({ 
   t, 
   onEdit, 
@@ -73,7 +73,7 @@ const TransactionListItem: React.FC<{
             <button 
                 onClick={(e) => {
                     e.stopPropagation();
-                    onDelete(t.id);
+                    onDelete(t);
                 }} 
                 className="w-full h-full flex items-center justify-center text-white"
             >
