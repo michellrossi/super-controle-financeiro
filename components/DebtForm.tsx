@@ -551,11 +551,11 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
 
 const getDebtIcon = (type: DebtType) => {
   switch (type) {
-    case DebtType.CRÉDITO PESSOAL: return '💰';
+    case DebtType.CRÉDITO_PESSOAL: return '💰';
     case DebtType.FINANCIAMENTO: return '🏠';
     case DebtType.CONSÓRCIO: return '🤝';
-    case DebtType.DÍVIDAS CARTÃO: return '💳';
-    case DebtType.DÍVIDAS INFORMAIS: return '☝️';
+    case DebtType.DÍVIDAS_CARTÃO: return '💳';
+    case DebtType.DÍVIDAS_INFORMAIS: return '☝️';
     default: return '📄';
   }
 };
