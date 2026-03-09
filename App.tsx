@@ -262,7 +262,7 @@ function App() {
          });
       } else {
          await StorageService.updateTransaction(user.id, t);
-         fetchData(user.id);
+         await fetchData(user.id);
          setIsTxModalOpen(false);
       }
     } else {
@@ -271,7 +271,7 @@ function App() {
       for (const tx of allT) {
         await StorageService.addTransaction(user.id, tx);
       }
-      fetchData(user.id);
+      await fetchData(user.id);
       setIsTxModalOpen(false);
     }
   };
@@ -285,39 +285,38 @@ function App() {
       return;
     }
 
-    showConfirm({
-      title: 'Excluir Transação?',
-      message: 'Tem certeza que deseja excluir esta transação?',
-      type: 'danger',
-      confirmLabel: 'Sim',
-      cancelLabel: 'Não',
-      onConfirm: async () => {
-        if (txToDelete.installments?.groupId) {
-          showConfirm({
-            title: "Excluir Série?",
-            message: "Esta transação faz parte de um parcelamento. Deseja excluir TODAS as parcelas daqui para frente?",
-            type: 'danger',
-            confirmLabel: 'Sim, todas',
-            cancelLabel: 'Não, apenas esta',
-            onConfirm: async () => {
-              await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.installments!.current);
-              fetchData(user.id);
-              setIsListModalOpen(false);
-            },
-            // Se clicar em "Não, apenas esta" (cancelLabel), excluímos apenas a atual
-            onCancel: async () => {
-              await StorageService.deleteTransaction(user.id, txToDelete.id);
-              fetchData(user.id);
-              setIsListModalOpen(false);
-            }
-          });
-        } else {
+    if (txToDelete.installments?.groupId) {
+      showConfirm({
+        title: "Excluir Parcelamento",
+        message: `Esta é a parcela ${txToDelete.installments.current}/${txToDelete.installments.total}. Deseja excluir apenas esta parcela ou esta e todas as futuras?`,
+        type: 'danger',
+        confirmLabel: 'Esta e futuras',
+        cancelLabel: 'Apenas esta',
+        onConfirm: async () => {
+          await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.installments!.current);
+          await fetchData(user.id);
+          setIsListModalOpen(false);
+        },
+        onCancel: async () => {
           await StorageService.deleteTransaction(user.id, txToDelete.id);
-          fetchData(user.id);
+          await fetchData(user.id);
           setIsListModalOpen(false);
         }
-      }
-    });
+      });
+    } else {
+      showConfirm({
+        title: 'Excluir Transação?',
+        message: 'Tem certeza que deseja excluir esta transação?',
+        type: 'danger',
+        confirmLabel: 'Sim, excluir',
+        cancelLabel: 'Cancelar',
+        onConfirm: async () => {
+          await StorageService.deleteTransaction(user.id, txToDelete.id);
+          await fetchData(user.id);
+          setIsListModalOpen(false);
+        }
+      });
+    }
   };
 
   const handleToggleStatus = async (id: string) => {
@@ -347,7 +346,7 @@ function App() {
       
       if (idsToUpdate.length > 0) {
         await StorageService.batchUpdateStatus(user.id, idsToUpdate, newStatus);
-        fetchData(user.id);
+        await fetchData(user.id);
       }
       return;
     }
@@ -356,7 +355,7 @@ function App() {
     const t = transactions.find(tx => tx.id === id);
     if (t) {
       await StorageService.toggleStatus(user.id, t);
-      fetchData(user.id);
+      await fetchData(user.id);
     }
   };
 

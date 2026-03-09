@@ -186,10 +186,10 @@ export const StorageService = {
 
   snapshot.docs.forEach(docSnap => {
     const data = docSnap.data() as Transaction;
-    const currentIdx = data.installments?.current;
+    const currentIdx = data.installments?.current || 1;
     
     // Atualiza apenas a parcela editada e as futuras
-    if (currentIdx && typeof currentIdx === 'number' && currentIdx >= anchorIdx) {
+    if (currentIdx >= anchorIdx) {
       const ref = doc(db, "transactions", docSnap.id);
       const monthOffset = currentIdx - anchorIdx;
       const computedDate = addMonths(newBaseDateObj, monthOffset);
@@ -224,9 +224,9 @@ export const StorageService = {
   const batch = writeBatch(db);
 
   snapshot.docs.forEach(docSnap => {
-    const data = docSnap.data() as Transaction;
+    const data = docSnap.data();
     // Exclui apenas a parcela atual e as futuras (ex: se apagar a 3/10, apaga 3, 4, 5...)
-    if (data.installments && typeof data.installments.current === 'number' && data.installments.current >= currentInstallment) {
+    if (data.installments && data.installments.current >= currentInstallment) {
       batch.delete(doc(db, "transactions", docSnap.id));
     }
   });

@@ -51,17 +51,13 @@ const TransactionListItem: React.FC<{
   };
 
   // Determine Icon Colors
-  let iconBg = 'bg-slate-100';
   let iconColor = 'text-slate-500';
 
   if (t.type === TransactionType.INCOME) {
-      iconBg = 'bg-emerald-100';
       iconColor = 'text-emerald-600';
   } else if (t.type === TransactionType.CARD_EXPENSE) {
-      iconBg = 'bg-indigo-100';
       iconColor = 'text-indigo-600';
   } else {
-      iconBg = 'bg-rose-100';
       iconColor = 'text-rose-600';
   }
 
