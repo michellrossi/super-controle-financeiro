@@ -52,13 +52,12 @@ export interface FilterState {
 }
 
 export enum DebtType {
-  LOAN = 'DÍVIDA',
-  FINANCING = 'FINANCIAMENTO',
-  OTHER = 'OUTROS',
-  PERSONAL_LOAN = 'DÍVIDA_PESSOAL',
-  CONSORTIUM = 'CONSÓRCIO',
-  INSTALLMENT_CARD = 'DÍVIDAS_CARTÃO',
-  INFORMAL_DEBT = 'DÍVIDAS_INFORMAIS'
+  CRÉDITO_PESSOAL = 'CRÉDITO_PESSOAL',
+  FINANCIAMENTO = 'FINANCIAMENTO',
+  CONSÓRCIO = 'CONSÓRCIO',
+  DÍVIDAS_CARTÃO = 'DÍVIDAS_CARTÃO',
+  DÍVIDAS_INFORMAIS = 'DÍVIDAS_INFORMAIS',
+  OUTRAS = 'OUTRAS'
 }
 
 export enum DebtFormat {
@@ -125,19 +124,43 @@ export interface Debt {
 
 export const INCOME_CATEGORIES = [
   'Salário',
-  'Investimentos',
-  'Presente',
-  'Outros'
+  'Bonificação',
+  '13°',
+  'Empréstimo',
+  'Vale Alimentação',
+  'Vale Refeição',
+  'Saldo Anterior',
+  'ISK',
+  'Periculosidade'
 ];
 
 export const EXPENSE_CATEGORIES = [
   'Alimentação',
-  'Transporte',
-  'Lazer',
-  'Saúde',
-  'Educação',
+  'Apê',
   'Moradia',
-  'Vestuário',
   'Assinaturas',
-  'Outros'
+  'Besteiras',
+  'Carro',
+  'Transporte',
+  'Comemoração',
+  'Educação',
+  'Estudo',
+  'Farmácia',
+  'Saúde',
+  'Ifood',
+  'Investimento',
+  'Investimentos',
+  'Lazer',
+  'Mercado',
+  'Compras',
+  'Pessoais',
+  'Lucas',
+  'Presente',
+  'Viagem',
+  'Viagens',
+  'Vestuário',
+  'Serviços',
+  'Impostos',
+  'Doações e Ofertas',
+  'Pet'
 ];

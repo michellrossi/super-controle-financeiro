@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Debt, TransactionStatus, DebtType } from '../types';
 import { formatCurrency } from '../services/storage';
-import { Plus, TrendingDown, CheckCircle2, AlertCircle, Clock, ChevronRight, Calculator } from 'lucide-react';
+import { Plus, TrendingDown, CheckCircle2, Clock, ChevronRight, Calculator } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { parseLocalDate } from '../utils/date';
-import { format, isAfter, startOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns';
 
 interface DebtsProps {
   debts: Debt[];
@@ -150,6 +149,7 @@ const DebtListItem: React.FC<{ debt: Debt, onClick: () => void }> = ({ debt, onC
       case DebtType.CONSÓRCIO: return '🤝';
       case DebtType.DÍVIDAS_CARTÃO: return '💳';
       case DebtType.DÍVIDAS_INFORMAIS: return '☝️';
+      case DebtType.OUTRAS: return '📄';
       default: return '📄';
     }
   };

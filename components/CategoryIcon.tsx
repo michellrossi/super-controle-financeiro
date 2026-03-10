@@ -1,10 +1,4 @@
 import React from 'react';
-import { 
-  Utensils, Home, Tv, Coffee, Car, PartyPopper, GraduationCap, 
-  HeartPulse, Pizza, TrendingUp, Gamepad2, ShoppingCart, 
-  MoreHorizontal, User, Gift, Bus, Plane, Shirt, 
-  Banknote, Wallet, Coins, History, Briefcase, Zap, Smartphone, Tag
-} from 'lucide-react';
 
 interface CategoryIconProps {
   category: string;

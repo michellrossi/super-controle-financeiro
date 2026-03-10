@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Info, HelpCircle } from 'lucide-react';
+import { X, ChevronLeft, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Debt, DebtType, DebtFormat, InterestType, InterestSystem, DebtFrequency, 
@@ -65,7 +65,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
     firstInstallmentDate: toDateString(new Date()),
     frequency: DebtFrequency.MONTHLY,
     format: DebtFormat.FIXED_INSTALLMENTS,
-    type: DebtType.PERSONAL_LOAN,
+    type: DebtType.CRÉDITO_PESSOAL,
     observations: '',
     installments: []
   });
@@ -92,7 +92,7 @@ export const DebtForm: React.FC<DebtFormProps> = ({ isOpen, onClose, onSubmit, i
         firstInstallmentDate: toDateString(new Date()),
         frequency: DebtFrequency.MONTHLY,
         format: DebtFormat.FIXED_INSTALLMENTS,
-        type: DebtType.PERSONAL_LOAN,
+        type: DebtType.CRÉDITO_PESSOAL,
         observations: '',
         installments: []
       });
@@ -556,6 +556,7 @@ const getDebtIcon = (type: DebtType) => {
     case DebtType.CONSÓRCIO: return '🤝';
     case DebtType.DÍVIDAS_CARTÃO: return '💳';
     case DebtType.DÍVIDAS_INFORMAIS: return '☝️';
+    case DebtType.OUTRAS: return '📄';
     default: return '📄';
   }
 };
