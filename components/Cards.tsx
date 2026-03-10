@@ -1,6 +1,7 @@
 import React from 'react';
 import { CreditCard, Transaction, TransactionType, TransactionStatus } from '../types';
 import { formatCurrency, getInvoiceMonth, getRemainingDebtForMonth } from '../services/storage';
+import { parseLocalDate } from '../utils/date';
 import { isSameMonth } from 'date-fns';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 
@@ -31,7 +32,7 @@ export const CardsView: React.FC<CardsProps> = ({
             .filter(t => 
               t.type === TransactionType.CARD_EXPENSE && 
               t.cardId === card.id &&
-              isSameMonth(getInvoiceMonth(new Date(t.date), card.closingDay), targetDate)
+              isSameMonth(getInvoiceMonth(parseLocalDate(t.date), card.closingDay), targetDate)
             )
             .reduce((acc, t) => acc + t.amount, 0);
 

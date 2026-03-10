@@ -1,6 +1,7 @@
 import React from 'react';
 import { Transaction, CreditCard, TransactionType, TransactionStatus, FilterState } from '../types';
 import { formatCurrency, getInvoiceMonth } from '../services/storage';
+import { parseLocalDate } from '../utils/date';
 import { TrendingUp, TrendingDown, Wallet, CreditCard as CreditCardIcon } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -41,7 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
     const d = subMonths(new Date(), 5 - i);
     
     const monthIncome = allTransactions
-        .filter(t => t.type === TransactionType.INCOME && isSameMonth(new Date(t.date), d))
+        .filter(t => t.type === TransactionType.INCOME && isSameMonth(parseLocalDate(t.date), d))
         .reduce((sum, t) => sum + t.amount, 0);
 
     let monthInvoiceTotal = 0;
@@ -50,13 +51,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
         .forEach(t => {
             const card = cards.find(c => c.id === t.cardId);
             if (card) {
-                const invoiceDate = getInvoiceMonth(new Date(t.date), card.closingDay);
+                const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
                 if (isSameMonth(invoiceDate, d)) monthInvoiceTotal += t.amount;
             }
         });
 
     const monthStandardExpense = allTransactions
-        .filter(t => t.type === TransactionType.EXPENSE && isSameMonth(new Date(t.date), d))
+        .filter(t => t.type === TransactionType.EXPENSE && isSameMonth(parseLocalDate(t.date), d))
         .reduce((sum, t) => sum + t.amount, 0);
 
     return {
@@ -75,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
         .forEach(t => {
             const card = cards.find(c => c.id === t.cardId);
             if (card) {
-                const invoiceDate = getInvoiceMonth(new Date(t.date), card.closingDay);
+                const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
                 if (isSameMonth(invoiceDate, d)) totalInvoice += t.amount;
             }
         });

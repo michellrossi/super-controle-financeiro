@@ -67,7 +67,7 @@ export const getRemainingDebtForMonth = (transactions: Transaction[], card: Cred
     .filter(t => {
       if (t.type !== TransactionType.CARD_EXPENSE || t.cardId !== card.id) return false;
       
-      const invoiceMonth = getInvoiceMonth(new Date(t.date), card.closingDay);
+      const invoiceMonth = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
       const startOfInvoice = startOfMonth(invoiceMonth);
       
       // O saldo devedor no mês X é a soma de tudo que vence no mês X e nos meses seguintes

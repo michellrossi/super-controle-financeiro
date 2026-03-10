@@ -662,7 +662,7 @@ function App() {
               const targetDate = new Date(filter.year, filter.month, 1);
               const cardTx = transactions.filter(t => 
                 t.cardId === cardId && 
-                isSameMonth(getInvoiceMonth(new Date(t.date), card.closingDay), targetDate)
+                isSameMonth(getInvoiceMonth(parseLocalDate(t.date), card.closingDay), targetDate)
               );
               setListModalTitle(`Fatura: ${card.name}`);
               // Show ALL transactions for the invoice (Pending + Completed) so user can see what's coming
