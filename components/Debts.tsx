@@ -21,6 +21,9 @@ export const DebtsView: React.FC<DebtsProps> = ({
   onDeleteDebt,
   onViewInstallments
 }) => {
+  const [sortBy, setSortBy] = React.useState<'outstanding' | 'progress' | 'installment'>('outstanding');
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc');
+
   const stats = useMemo(() => {
     let activeDebts = 0;
     let totalOutstanding = 0;
@@ -42,6 +45,37 @@ export const DebtsView: React.FC<DebtsProps> = ({
 
     return { activeDebts, totalOutstanding, totalPaid, totalInterestPaid };
   }, [debts]);
+
+  const sortedDebts = useMemo(() => {
+    return [...debts].sort((a, b) => {
+      let valA = 0;
+      let valB = 0;
+
+      if (sortBy === 'outstanding') {
+        valA = a.installments.filter(i => i.status !== TransactionStatus.COMPLETED).reduce((acc, i) => acc + i.principal + i.interest, 0);
+        valB = b.installments.filter(i => i.status !== TransactionStatus.COMPLETED).reduce((acc, i) => acc + i.principal + i.interest, 0);
+      } else if (sortBy === 'progress') {
+        const paidA = a.installments.filter(i => i.status === TransactionStatus.COMPLETED).length;
+        const paidB = b.installments.filter(i => i.status === TransactionStatus.COMPLETED).length;
+        valA = (paidA / a.installments.length) || 0;
+        valB = (paidB / b.installments.length) || 0;
+      } else if (sortBy === 'installment') {
+        valA = a.installmentAmount || (a.installments[0]?.amount || 0);
+        valB = b.installmentAmount || (b.installments[0]?.amount || 0);
+      }
+
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
+    });
+  }, [debts, sortBy, sortOrder]);
+
+  const handleSort = (type: 'outstanding' | 'progress' | 'installment') => {
+    if (sortBy === type) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(type);
+      setSortOrder('desc');
+    }
+  };
 
   const overallProgress = useMemo(() => {
     if (debts.length === 0) return 0;
@@ -89,16 +123,40 @@ export const DebtsView: React.FC<DebtsProps> = ({
         )}
       </div>
 
-      {/* Debt List */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800">Minhas Dívidas</h2>
-        <button 
-          onClick={onAddDebt}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-        >
-          <Plus size={18} />
-          Nova Dívida
-        </button>
+      {/* Debt List Header & Filters */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-800">Minhas Dívidas</h2>
+          <button 
+            onClick={onAddDebt}
+            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+          >
+            <Plus size={18} />
+            Nova Dívida
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          <SortButton 
+            active={sortBy === 'outstanding'} 
+            order={sortBy === 'outstanding' ? sortOrder : null} 
+            onClick={() => handleSort('outstanding')}
+            label="Saldo Devedor"
+          />
+          <SortButton 
+            active={sortBy === 'progress'} 
+            order={sortBy === 'progress' ? sortOrder : null} 
+            onClick={() => handleSort('progress')}
+            label="% Paga"
+          />
+          <SortButton 
+            active={sortBy === 'installment'} 
+            order={sortBy === 'installment' ? sortOrder : null} 
+            onClick={() => handleSort('installment')}
+            label="Valor Parcela"
+          />
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -108,7 +166,7 @@ export const DebtsView: React.FC<DebtsProps> = ({
             <p className="text-slate-500">Nenhuma dívida cadastrada.</p>
           </div>
         ) : (
-          debts.map(debt => (
+          sortedDebts.map(debt => (
             <DebtListItem 
               key={debt.id} 
               debt={debt} 
@@ -120,6 +178,24 @@ export const DebtsView: React.FC<DebtsProps> = ({
     </div>
   );
 };
+
+const SortButton = ({ active, order, onClick, label }: { active: boolean, order: 'asc' | 'desc' | null, onClick: () => void, label: string }) => (
+  <button 
+    onClick={onClick}
+    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+      active 
+        ? 'bg-slate-800 text-white border-slate-800' 
+        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+    }`}
+  >
+    {label}
+    {active && (
+      <span className="text-[10px] opacity-70">
+        {order === 'asc' ? '↑' : '↓'}
+      </span>
+    )}
+  </button>
+);
 
 const StatCard = ({ title, value, icon, valueColor = "text-slate-800" }: { title: string, value: string, icon: React.ReactNode, valueColor?: string }) => (
   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-2">
@@ -139,6 +215,7 @@ const DebtListItem: React.FC<{ debt: Debt, onClick: () => void }> = ({ debt, onC
   const unpaidInstallments = debt.installments.filter(i => i.status !== TransactionStatus.COMPLETED);
   const outstanding = unpaidInstallments.reduce((acc, i) => acc + i.principal + i.interest, 0);
   const totalPaid = debt.installments.filter(i => i.status === TransactionStatus.COMPLETED).reduce((acc, i) => acc + i.principal, 0);
+  const installmentValue = debt.installmentAmount || (debt.installments[0]?.amount || 0);
   
   const next = unpaidInstallments.sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime())[0];
 
@@ -174,7 +251,7 @@ const DebtListItem: React.FC<{ debt: Debt, onClick: () => void }> = ({ debt, onC
         <ChevronRight className="text-slate-300 group-hover:text-emerald-500 transition-colors" size={20} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <div>
           <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Saldo devedor</p>
           <p className="text-sm font-bold text-red-500">{formatCurrency(outstanding)}</p>
@@ -182,6 +259,10 @@ const DebtListItem: React.FC<{ debt: Debt, onClick: () => void }> = ({ debt, onC
         <div>
           <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Total pago</p>
           <p className="text-sm font-bold text-emerald-500">{formatCurrency(totalPaid)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Valor Parcela</p>
+          <p className="text-sm font-bold text-slate-700">{formatCurrency(installmentValue)}</p>
         </div>
       </div>
 
