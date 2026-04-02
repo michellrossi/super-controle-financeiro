@@ -123,44 +123,42 @@ export interface Debt {
 }
 
 export const INCOME_CATEGORIES = [
-  'Salário',
-  'Bonificação',
   '13°',
+  'Bonificação',
   'Empréstimo',
-  'Vale Alimentação',
-  'Vale Refeição',
-  'Saldo Anterior',
   'ISK',
-  'Periculosidade'
+  'Periculosidade',
+  'Saldo Anterior',
+  'Salário',
+  'Vale Alimentação',
+  'Vale Refeição'
 ];
 
 export const EXPENSE_CATEGORIES = [
   'Alimentação',
   'Apê',
-  'Moradia',
-  'Assinaturas',
-  'Besteiras',
+  'Assinatura',
+  'Besteira',
   'Carro',
-  'Transporte',
   'Comemoração',
+  'Compra',
+  'Doação e Oferta',
   'Educação',
   'Estudo',
   'Farmácia',
-  'Saúde',
   'Ifood',
+  'Imposto',
   'Investimento',
-  'Investimentos',
   'Lazer',
-  'Mercado',
-  'Compras',
-  'Pessoais',
   'Lucas',
+  'Mercado',
+  'Moradia',
+  'Pessoal',
+  'Pet',
   'Presente',
-  'Viagem',
-  'Viagens',
+  'Saúde',
+  'Serviço',
+  'Transporte',
   'Vestuário',
-  'Serviços',
-  'Impostos',
-  'Doações e Ofertas',
-  'Pet'
+  'Viagem'
 ];

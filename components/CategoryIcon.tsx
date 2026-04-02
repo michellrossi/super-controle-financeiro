@@ -13,8 +13,8 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ category, size = 16,
       case 'Alimentação': return '🍔';
       case 'Apê':
       case 'Moradia': return '🏠';
-      case 'Assinaturas': return '📱';
-      case 'Besteiras': return '🍕';
+      case 'Assinatura': return '📱';
+      case 'Besteira': return '🍕';
       case 'Carro':
       case 'Transporte': return '🚗';
       case 'Comemoração': return '🥳';
@@ -23,20 +23,18 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ category, size = 16,
       case 'Farmácia':
       case 'Saúde': return '💊';
       case 'Ifood': return '🥡';
-      case 'Investimento':
-      case 'Investimentos': return '📈';
+      case 'Investimento': return '📈';
       case 'Lazer': return '🎮';
       case 'Mercado':
-      case 'Compras': return '🛍️';
-      case 'Pessoais':
+      case 'Compra': return '🛍️';
+      case 'Pessoal':
       case 'Lucas': return '👤';
       case 'Presente': return '🎁';
-      case 'Viagem':
-      case 'Viagens': return '✈️';
+      case 'Viagem': return '✈️';
       case 'Vestuário': return '👕';
-      case 'Serviços': return '💡';
-      case 'Impostos': return '📋';
-      case 'Doações e Ofertas': return '🙌';
+      case 'Serviço': return '💡';
+      case 'Imposto': return '📋';
+      case 'Doação e Oferta': return '🙌';
       case 'Pet': return '🐾';
       
       // Receitas
