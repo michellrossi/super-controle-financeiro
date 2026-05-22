@@ -29,12 +29,12 @@ import { addMonths, isBefore, startOfMonth } from 'date-fns';
 
 // Firebase Configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCe-tyLRk2tsV-_uVWhpUgIgF3b-Jz_F_0",
-  authDomain: "controle-financeiro-definitivo.firebaseapp.com",
-  projectId: "controle-financeiro-definitivo",
-  storageBucket: "controle-financeiro-definitivo.firebasestorage.app",
-  messagingSenderId: "659709682670",
-  appId: "1:659709682670:web:e4898612b3f04948e9a4ff"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
@@ -98,7 +98,7 @@ export const generateInstallments = (baseTransaction: Transaction, totalInstallm
   if (totalInstallments <= 1) {
     return [{
         ...baseTransaction,
-        date: toDateString(baseDateObj)
+        date: `${toDateString(baseDateObj)}T12:00:00`
     }];
   }
 
@@ -117,7 +117,7 @@ export const generateInstallments = (baseTransaction: Transaction, totalInstallm
       ...baseTransaction,
       id: crypto.randomUUID(), // Temp ID
       amount: parseFloat(installmentValue.toFixed(2)),
-      date: toDateString(newDateObj), 
+      date: `${toDateString(newDateObj)}T12:00:00`, 
       installments: {
         current: i + 1,
         total: totalInstallments,
@@ -180,6 +180,17 @@ export const StorageService = {
     const { id, ...data } = t; 
     const payload = cleanPayload({ ...data, userId });
     await addDoc(collection(db, "transactions"), payload);
+  },
+
+  addTransactionsBatch: async (userId: string, txs: Transaction[]) => {
+    const batch = writeBatch(db);
+    txs.forEach(tx => {
+      const { id, ...data } = tx;
+      const ref = doc(collection(db, "transactions"));
+      const payload = cleanPayload({ ...data, userId });
+      batch.set(ref, payload);
+    });
+    await batch.commit();
   },
 
   updateTransaction: async (userId: string, t: Transaction) => {

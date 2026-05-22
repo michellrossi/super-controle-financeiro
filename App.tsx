@@ -16,6 +16,7 @@ import { format, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate, toDateString } from './utils/date';
 import { ConfirmModal } from './components/ui/ConfirmModal';
+import toast, { Toaster } from 'react-hot-toast';
 
 function App() {
   // --- Global State ---
@@ -177,8 +178,11 @@ function App() {
     setAuthError('');
     try {
       await StorageService.loginEmail(loginEmail, loginPass);
-    } catch {
+      toast.success('Login realizado com sucesso!');
+    } catch (err: any) {
+      console.error(err);
       setAuthError('Erro ao fazer login. Verifique suas credenciais.');
+      toast.error('Erro ao fazer login. Verifique suas credenciais.');
     }
   };
 
@@ -187,8 +191,11 @@ function App() {
     setAuthError('');
     try {
       await StorageService.registerEmail(loginEmail, loginPass, regName);
-    } catch {
+      toast.success('Conta criada com sucesso!');
+    } catch (err: any) {
+      console.error(err);
       setAuthError('Erro ao criar conta. Tente novamente.');
+      toast.error('Erro ao criar conta. Tente novamente.');
     }
   };
 
@@ -196,13 +203,22 @@ function App() {
     setAuthError('');
     try {
       await StorageService.loginGoogle();
-    } catch {
+      toast.success('Login com Google realizado!');
+    } catch (err: any) {
+      console.error(err);
       setAuthError('Erro no login com Google.');
+      toast.error('Erro no login com Google.');
     }
   };
 
   const handleLogout = async () => {
-    await StorageService.logout();
+    try {
+      await StorageService.logout();
+      toast.success('Logout realizado.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao fazer logout.');
+    }
   };
 
   // --- Transaction Handlers ---
@@ -249,30 +265,52 @@ function App() {
            cancelLabel: "Não, apenas esta",
            onConfirm: async () => {
               if (!user) return;
-              await StorageService.updateTransactionSeries(user.id, editingTransaction.installments!.groupId, t);
-              fetchData(user.id);
-              setIsTxModalOpen(false);
+              try {
+                await StorageService.updateTransactionSeries(user.id, editingTransaction.installments!.groupId, t);
+                toast.success('Série de transações atualizada com sucesso!');
+                fetchData(user.id);
+                setIsTxModalOpen(false);
+              } catch (err) {
+                console.error(err);
+                toast.error('Erro ao atualizar série de transações.');
+              }
            },
            onCancel: async () => {
               if (!user) return;
-              await StorageService.updateTransaction(user.id, t);
-              fetchData(user.id);
-              setIsTxModalOpen(false);
+              try {
+                await StorageService.updateTransaction(user.id, t);
+                toast.success('Transação atualizada com sucesso!');
+                fetchData(user.id);
+                setIsTxModalOpen(false);
+              } catch (err) {
+                console.error(err);
+                toast.error('Erro ao atualizar transação.');
+              }
            }
          });
       } else {
-         await StorageService.updateTransaction(user.id, t);
-         await fetchData(user.id);
-         setIsTxModalOpen(false);
+         try {
+           await StorageService.updateTransaction(user.id, t);
+           toast.success('Transação atualizada com sucesso!');
+           await fetchData(user.id);
+           setIsTxModalOpen(false);
+         } catch (err) {
+           console.error(err);
+           toast.error('Erro ao atualizar transação.');
+         }
       }
     } else {
       // CREATE LOGIC
-      const allT = generateInstallments(t, installments, amountType);
-      for (const tx of allT) {
-        await StorageService.addTransaction(user.id, tx);
+      try {
+        const allT = generateInstallments(t, installments, amountType);
+        await StorageService.addTransactionsBatch(user.id, allT);
+        toast.success(installments > 1 ? `${installments} parcelas criadas com sucesso!` : 'Transação criada com sucesso!');
+        await fetchData(user.id);
+        setIsTxModalOpen(false);
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao criar transação.');
       }
-      await fetchData(user.id);
-      setIsTxModalOpen(false);
     }
   };
 
@@ -293,14 +331,26 @@ function App() {
         confirmLabel: 'Esta e futuras',
         cancelLabel: 'Apenas esta',
         onConfirm: async () => {
-          await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.installments!.current);
-          await fetchData(user.id);
-          setIsListModalOpen(false);
+          try {
+            await StorageService.deleteTransactionSeries(user.id, txToDelete.installments!.groupId, txToDelete.installments!.current);
+            toast.success('Série de transações excluída com sucesso!');
+            await fetchData(user.id);
+            setIsListModalOpen(false);
+          } catch (err) {
+            console.error(err);
+            toast.error('Erro ao excluir série de transações.');
+          }
         },
         onCancel: async () => {
-          await StorageService.deleteTransaction(user.id, txToDelete.id);
-          await fetchData(user.id);
-          setIsListModalOpen(false);
+          try {
+            await StorageService.deleteTransaction(user.id, txToDelete.id);
+            toast.success('Parcela excluída com sucesso!');
+            await fetchData(user.id);
+            setIsListModalOpen(false);
+          } catch (err) {
+            console.error(err);
+            toast.error('Erro ao excluir parcela.');
+          }
         }
       });
     } else {
@@ -311,9 +361,15 @@ function App() {
         confirmLabel: 'Sim, excluir',
         cancelLabel: 'Cancelar',
         onConfirm: async () => {
-          await StorageService.deleteTransaction(user.id, txToDelete.id);
-          await fetchData(user.id);
-          setIsListModalOpen(false);
+          try {
+            await StorageService.deleteTransaction(user.id, txToDelete.id);
+            toast.success('Transação excluída com sucesso!');
+            await fetchData(user.id);
+            setIsListModalOpen(false);
+          } catch (err) {
+            console.error(err);
+            toast.error('Erro ao excluir transação.');
+          }
         }
       });
     }
@@ -345,8 +401,14 @@ function App() {
       const idsToUpdate = txsToUpdate.map(t => t.id);
       
       if (idsToUpdate.length > 0) {
-        await StorageService.batchUpdateStatus(user.id, idsToUpdate, newStatus);
-        await fetchData(user.id);
+        try {
+          await StorageService.batchUpdateStatus(user.id, idsToUpdate, newStatus);
+          toast.success(newStatus === TransactionStatus.COMPLETED ? 'Fatura marcada como paga!' : 'Fatura marcada como pendente.');
+          await fetchData(user.id);
+        } catch (err) {
+          console.error(err);
+          toast.error('Erro ao atualizar status da fatura.');
+        }
       }
       return;
     }
@@ -354,17 +416,34 @@ function App() {
     // Standard Toggle
     const t = transactions.find(tx => tx.id === id);
     if (t) {
-      await StorageService.toggleStatus(user.id, t);
-      await fetchData(user.id);
+      try {
+        const nextStatus = t.status === TransactionStatus.COMPLETED ? 'pendente' : 'paga';
+        await StorageService.toggleStatus(user.id, t);
+        toast.success(`Transação marcada como ${nextStatus}.`);
+        await fetchData(user.id);
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao atualizar status da transação.');
+      }
     }
   };
 
   // --- Card Handlers ---
   const handleCardSubmit = async (c: CreditCard) => {
     if (!user) return;
-    if (editingCard) await StorageService.updateCard(user.id, c);
-    else await StorageService.addCard(user.id, c);
-    fetchData(user.id);
+    try {
+      if (editingCard) {
+        await StorageService.updateCard(user.id, c);
+        toast.success('Cartão atualizado com sucesso!');
+      } else {
+        await StorageService.addCard(user.id, c);
+        toast.success('Cartão criado com sucesso!');
+      }
+      fetchData(user.id);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar cartão.');
+    }
   };
 
   const handleDeleteCard = async (id: string) => {
@@ -376,8 +455,14 @@ function App() {
       confirmLabel: 'Sim',
       cancelLabel: 'Não',
       onConfirm: async () => {
-        await StorageService.deleteCard(user.id, id);
-        fetchData(user.id);
+        try {
+          await StorageService.deleteCard(user.id, id);
+          toast.success('Cartão excluído com sucesso!');
+          fetchData(user.id);
+        } catch (err) {
+          console.error(err);
+          toast.error('Erro ao excluir cartão.');
+        }
       }
     });
   };
@@ -385,15 +470,31 @@ function App() {
   // --- Debt Handlers ---
   const handleDebtSubmit = async (d: Debt) => {
     if (!user) return;
-    if (editingDebt) await StorageService.updateDebt(user.id, d);
-    else await StorageService.addDebt(user.id, d);
-    fetchData(user.id);
+    try {
+      if (editingDebt) {
+        await StorageService.updateDebt(user.id, d);
+        toast.success('Dívida atualizada com sucesso!');
+      } else {
+        await StorageService.addDebt(user.id, d);
+        toast.success('Dívida criada com sucesso!');
+      }
+      fetchData(user.id);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar dívida.');
+    }
   };
 
   const handleDeleteDebt = async (id: string) => {
     if (!user) return;
-    await StorageService.deleteDebt(user.id, id);
-    fetchData(user.id);
+    try {
+      await StorageService.deleteDebt(user.id, id);
+      toast.success('Dívida excluída com sucesso!');
+      fetchData(user.id);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao excluir dívida.');
+    }
   };
 
   const handleUpdateDebtInstallment = async (debtId: string, installmentId: string, status: TransactionStatus, customAmount?: number) => {
@@ -428,12 +529,18 @@ function App() {
     });
 
     const updatedDebt = { ...debt, installments: updatedInstallments };
-    await StorageService.updateDebt(user.id, updatedDebt);
-    
-    // Update local state immediately for better UX
-    setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
-    if (selectedDebt?.id === debtId) {
-      setSelectedDebt(updatedDebt);
+    try {
+      await StorageService.updateDebt(user.id, updatedDebt);
+      toast.success(status === TransactionStatus.COMPLETED ? 'Parcela quitada!' : 'Parcela reaberta.');
+      
+      // Update local state immediately for better UX
+      setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
+      if (selectedDebt?.id === debtId) {
+        setSelectedDebt(updatedDebt);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao atualizar parcela.');
     }
   };
 
@@ -462,9 +569,15 @@ function App() {
           return i;
         });
 
-        await StorageService.updateDebt(user.id, { ...debt, installments: updatedInstallments });
-        fetchData(user.id);
-        setIsDebtDetailsOpen(false);
+        try {
+          await StorageService.updateDebt(user.id, { ...debt, installments: updatedInstallments });
+          toast.success('Dívida quitada com sucesso!');
+          fetchData(user.id);
+          setIsDebtDetailsOpen(false);
+        } catch (err) {
+          console.error(err);
+          toast.error('Erro ao quitar dívida.');
+        }
       }
     });
   };
@@ -765,6 +878,7 @@ function App() {
         confirmLabel={confirmConfig.confirmLabel}
         cancelLabel={confirmConfig.cancelLabel}
       />
+      <Toaster position="top-right" />
     </Layout>
   );
 }

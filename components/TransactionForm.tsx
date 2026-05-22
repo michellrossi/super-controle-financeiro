@@ -85,7 +85,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
       id: initialData?.id || crypto.randomUUID(),
       description,
       amount: parseFloat(amount),
-      date: dateAtNoon.toISOString().split('T')[0], 
+      date: `${date}T12:00:00`, 
       type,
       category,
       // Alterado para PENDING em cartões para bloquear o limite até o pagamento da fatura

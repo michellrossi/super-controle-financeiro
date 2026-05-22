@@ -16,5 +16,5 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "App.tsx", "index.tsx", "components", "services", "types.ts"]
+  "include": ["src", "App.tsx", "index.tsx", "components", "services", "types.ts", "vite-env.d.ts"]
 }

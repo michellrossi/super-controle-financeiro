@@ -134,7 +134,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
               <Edit2 size={18} />
             </button>
             <button 
-              onClick={() => { if(window.confirm('Excluir esta dívida?')) onDeleteDebt(debt.id); onClose(); }}
+              onClick={() => { if(window.confirm('Excluir esta dívida?')) { onDeleteDebt(debt.id); onClose(); } }}
               className="p-2 hover:bg-red-50 rounded-full text-slate-400 hover:text-red-600 transition-colors"
             >
               <Trash2 size={18} />

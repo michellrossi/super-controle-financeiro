@@ -35,6 +35,11 @@ export const AIService = {
       }
     }
 
+    // Tentativa 3: import.meta.env.VITE_GEMINI_API_KEY (Vite)
+    if (!apiKey && import.meta.env?.VITE_GEMINI_API_KEY) {
+      apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    }
+
     if (!apiKey) {
       console.error("API Key não encontrada.");
       throw new Error("API_KEY_MISSING");
@@ -45,7 +50,7 @@ export const AIService = {
     try {
       console.log("Enviando prompt para Gemini...");
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: `Você é um assistente financeiro especialista. Analise o texto do extrato bancário/fatura e extraia as transações.
         
         Categorias de Entrada (INCOME) permitidas: ${INCOME_CATEGORIES.join(", ")}.
