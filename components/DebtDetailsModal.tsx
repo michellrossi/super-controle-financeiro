@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, isBefore, startOfDay, differenceInMonths, differenceInWeeks, differenceInYears } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate } from '../utils/date';
+import { ConfirmModal } from './ui/ConfirmModal';
 
 interface DebtDetailsModalProps {
   isOpen: boolean;
@@ -32,6 +33,8 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   const [simulationDiscount, setSimulationDiscount] = useState(100); // Default to 100% discount on interest for early payoff
   const [anticipateInstallment, setAnticipateInstallment] = useState<DebtInstallment | null>(null);
   const [anticipateAmount, setAnticipateAmount] = useState<number>(0);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isConfirmAbatedOpen, setIsConfirmAbatedOpen] = useState(false);
 
   const stats = useMemo(() => {
     if (!debt) return null;
@@ -134,7 +137,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
               <Edit2 size={18} />
             </button>
             <button 
-              onClick={() => { if(window.confirm('Excluir esta dívida?')) { onDeleteDebt(debt.id); onClose(); } }}
+              onClick={() => setIsConfirmDeleteOpen(true)}
               className="p-2 hover:bg-red-50 rounded-full text-slate-400 hover:text-red-600 transition-colors"
             >
               <Trash2 size={18} />
@@ -288,12 +291,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                         disabled={!simulation || simulation.mode !== 'extra' || simulation.installmentsAbated === 0}
                         onClick={() => {
                           if (simulation?.mode === 'extra' && simulation.abatedItems.length > 0) {
-                            if (window.confirm(`Confirmar o abatimento de ${simulation.installmentsAbated} parcelas?`)) {
-                              simulation.abatedItems.forEach(item => {
-                                onUpdateInstallment(debt.id, item.id, TransactionStatus.COMPLETED, item.principal);
-                              });
-                              setExtraPaymentAmount(0);
-                            }
+                            setIsConfirmAbatedOpen(true);
                           }
                         }}
                         className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-50 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -441,6 +439,42 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
             </div>
           )}
         </AnimatePresence>
+
+        {/* Confirm Delete Debt Dialog */}
+        {debt && (
+          <ConfirmModal
+            isOpen={isConfirmDeleteOpen}
+            onClose={() => setIsConfirmDeleteOpen(false)}
+            title="Excluir Dívida?"
+            message={`Tem certeza que deseja excluir a dívida "${debt.name}"? Todas as parcelas cadastradas serão apagadas permanentemente.`}
+            type="danger"
+            confirmLabel="Sim, excluir"
+            cancelLabel="Cancelar"
+            onConfirm={() => {
+              onDeleteDebt(debt.id);
+              onClose();
+            }}
+          />
+        )}
+
+        {/* Confirm Abatement Dialog */}
+        {debt && simulation?.mode === 'extra' && (
+          <ConfirmModal
+            isOpen={isConfirmAbatedOpen}
+            onClose={() => setIsConfirmAbatedOpen(false)}
+            title="Confirmar Abatimento?"
+            message={`Deseja confirmar o abatimento de ${simulation.installmentsAbated} parcelas com o pagamento extra de ${formatCurrency(extraPaymentAmount)}? As parcelas serão deduzidas do final do cronograma.`}
+            type="info"
+            confirmLabel="Sim, confirmar"
+            cancelLabel="Cancelar"
+            onConfirm={() => {
+              simulation.abatedItems.forEach(item => {
+                onUpdateInstallment(debt.id, item.id, TransactionStatus.COMPLETED, item.principal);
+              });
+              setExtraPaymentAmount(0);
+            }}
+          />
+        )}
       </motion.div>
     </div>
   );

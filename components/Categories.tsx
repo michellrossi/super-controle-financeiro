@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Category, Budget, TransactionType } from '../types';
 import { Trash2, Edit2, Plus, DollarSign, X, Check, FolderHeart, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '../services/storage';
+import toast from 'react-hot-toast';
 
 interface CategoriesViewProps {
   categories: Category[];
@@ -74,9 +75,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
   };
 
   const handleDeleteClick = async (cat: Category) => {
-    if (window.confirm(`Tem certeza que deseja excluir a categoria "${cat.name}"? As transações existentes com esta categoria permanecerão, mas o vínculo visual será perdido.`)) {
-      await onDeleteCategory(cat.id);
-    }
+    await onDeleteCategory(cat.id);
   };
 
   const handleOpenBudgetEdit = (categoryName: string, currentLimit?: number) => {
@@ -87,7 +86,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
   const handleSaveBudget = async (categoryName: string) => {
     const limitNum = parseFloat(budgetLimit);
     if (isNaN(limitNum) || limitNum <= 0) {
-      alert("Por favor, insira um valor válido maior que zero.");
+      toast.error("Por favor, insira um valor válido maior que zero.");
       return;
     }
     await onSaveBudget(categoryName, limitNum);
@@ -95,9 +94,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
   };
 
   const handleDeleteBudgetClick = async (budgetId: string, categoryName: string) => {
-    if (window.confirm(`Remover limite de orçamento para "${categoryName}"?`)) {
-      await onDeleteBudget(budgetId);
-    }
+    await onDeleteBudget(budgetId);
   };
 
   const filteredCategories = categories

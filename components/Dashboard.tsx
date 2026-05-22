@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Transaction, CreditCard, TransactionType, TransactionStatus, FilterState, Budget } from '../types';
+import { Modal } from './ui/Modal';
+import toast from 'react-hot-toast';
 import { formatCurrency, getInvoiceMonth } from '../services/storage';
 import { parseLocalDate } from '../utils/date';
 import { TrendingUp, TrendingDown, Wallet, CreditCard as CreditCardIcon, Sparkles } from 'lucide-react';
@@ -19,6 +21,7 @@ interface DashboardProps {
   onViewDetails: (type: 'INCOME' | 'EXPENSE' | 'BALANCE') => void;
   budgets: Budget[];
   onSaveBudget: (category: string, limit: number) => Promise<void>;
+  onDeleteBudget?: (budgetId: string) => Promise<void>;
   onCategoryClick: (categoryName: string) => void;
 }
 
@@ -30,17 +33,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onViewDetails,
   budgets,
   onSaveBudget,
+  onDeleteBudget,
   onCategoryClick
 }) => {
-  const handleSetBudgetPrompt = async (categoryName: string, currentLimit?: number) => {
-    const res = window.prompt(`Defina o limite mensal de gastos para a categoria "${categoryName}":`, currentLimit ? currentLimit.toString() : '');
-    if (res === null) return;
-    const limitNum = parseFloat(res);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [budgetCategory, setBudgetCategory] = useState('');
+  const [budgetLimitStr, setBudgetLimitStr] = useState('');
+
+  const handleSetBudgetPrompt = (categoryName: string, currentLimit?: number) => {
+    setBudgetCategory(categoryName);
+    setBudgetLimitStr(currentLimit ? currentLimit.toString() : '');
+    setIsBudgetModalOpen(true);
+  };
+
+  const handleSaveBudgetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const limitNum = parseFloat(budgetLimitStr);
     if (isNaN(limitNum) || limitNum <= 0) {
-      alert("Por favor, insira um valor numérico válido maior que zero.");
+      toast.error("Por favor, insira um valor numérico válido maior que zero.");
       return;
     }
-    await onSaveBudget(categoryName, limitNum);
+    await onSaveBudget(budgetCategory, limitNum);
+    setIsBudgetModalOpen(false);
+  };
+
+  const handleRemoveBudget = async () => {
+    const budget = budgets.find(b => b.category === budgetCategory);
+    if (budget && onDeleteBudget) {
+      await onDeleteBudget(budget.id);
+    } else {
+      await onSaveBudget(budgetCategory, 0);
+    }
+    setIsBudgetModalOpen(false);
   };
   // 1. Cálculos de Sumário
   const income = transactions
@@ -303,6 +327,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
         </div>
       </div>
+
+      {/* Modal de Limite de Orçamento Customizado */}
+      <Modal 
+        isOpen={isBudgetModalOpen} 
+        onClose={() => setIsBudgetModalOpen(false)} 
+        title="Definir Limite de Orçamento"
+      >
+        <form onSubmit={handleSaveBudgetSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Categoria: <span className="text-slate-700 font-extrabold">{budgetCategory}</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
+              <input
+                type="number"
+                step="any"
+                required
+                value={budgetLimitStr}
+                onChange={e => setBudgetLimitStr(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-slate-800"
+                placeholder="Ex: 500.00"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBudgetModalOpen(false)}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"
+              >
+                Salvar
+              </button>
+            </div>
+            {budgets.some(b => b.category === budgetCategory) && (
+              <button
+                type="button"
+                onClick={handleRemoveBudget}
+                className="w-full py-3 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors mt-1"
+              >
+                Remover Limite
+              </button>
+            )}
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

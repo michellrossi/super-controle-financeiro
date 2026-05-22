@@ -343,7 +343,7 @@ function App() {
     
     // Block deleting virtual transactions
     if (txToDelete.id.startsWith('virtual-invoice')) {
-      alert("Para alterar o valor da fatura, edite ou exclua as transações individuais na aba 'Cartões'.");
+      toast.error("Para alterar o valor da fatura, edite ou exclua as transações individuais na aba 'Cartões'.");
       return;
     }
 
@@ -786,14 +786,26 @@ function App() {
 
   const handleDeleteBudget = async (budgetId: string) => {
     if (!user) return;
-    try {
-      await StorageService.deleteBudget(user.id, budgetId);
-      toast.success('Orçamento removido com sucesso!');
-      await fetchData(user.id);
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao remover orçamento.');
-    }
+    const bgt = budgets.find(b => b.id === budgetId);
+    const categoryName = bgt ? bgt.category : '';
+
+    showConfirm({
+      title: 'Remover Orçamento?',
+      message: `Deseja realmente remover o limite de orçamento para a categoria "${categoryName}"?`,
+      type: 'danger',
+      confirmLabel: 'Sim, remover',
+      cancelLabel: 'Cancelar',
+      onConfirm: async () => {
+        try {
+          await StorageService.deleteBudget(user.id, budgetId);
+          toast.success('Orçamento removido com sucesso!');
+          await fetchData(user.id);
+        } catch (err) {
+          console.error(err);
+          toast.error('Erro ao remover orçamento.');
+        }
+      }
+    });
   };
 
   const changeMonth = (increment: number) => {
@@ -962,6 +974,7 @@ function App() {
             cards={cards}
             budgets={budgets}
             onSaveBudget={handleSaveBudget}
+            onDeleteBudget={handleDeleteBudget}
             onViewDetails={(type) => { 
               const filteredT = processedTransactions.filter(t => {
                   // For Dashboard stats (which show "Realized"), only show COMPLETED items

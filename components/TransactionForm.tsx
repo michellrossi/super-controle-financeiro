@@ -3,6 +3,7 @@ import { Transaction, TransactionType, TransactionStatus, Category, CreditCard }
 import { DollarSign, Type, Layers } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { CategoryIcon } from './CategoryIcon';
+import toast from 'react-hot-toast';
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -85,7 +86,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     if (!description || !amount || !category) return;
 
     if (type === TransactionType.CARD_EXPENSE && !cardId) {
-        alert("Por favor, selecione um cartão.");
+        toast.error("Por favor, selecione um cartão.");
         return;
     }
 
