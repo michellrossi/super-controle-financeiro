@@ -980,9 +980,32 @@ function App() {
               setIsListModalOpen(true);
             }}
             onCategoryClick={(categoryName) => {
-              const filteredT = processedTransactions.filter(t => 
-                t.type !== TransactionType.INCOME && t.category === categoryName
+              const targetDate = new Date(filter.year, filter.month, 1);
+              
+              // 1. Despesas normais (EXPENSE) reais do mês para essa categoria
+              const standardTxs = transactions.filter(t => 
+                t.type === TransactionType.EXPENSE && 
+                !t.isVirtual && 
+                t.category === categoryName &&
+                isSameMonth(parseLocalDate(t.date), targetDate)
               );
+
+              // 2. Compras de cartão (CARD_EXPENSE) cuja fatura cai no mês atual para essa categoria
+              const cardTxs: Transaction[] = [];
+              transactions
+                .filter(t => t.type === TransactionType.CARD_EXPENSE && t.cardId && t.category === categoryName)
+                .forEach(t => {
+                  const card = cards.find(c => c.id === t.cardId);
+                  if (card) {
+                    const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+                    if (isSameMonth(invoiceDate, targetDate)) {
+                      cardTxs.push(t);
+                    }
+                  }
+                });
+
+              const filteredT = [...standardTxs, ...cardTxs];
+              
               setListModalTitle(`Gastos: ${categoryName}`);
               setListModalTransactions(filteredT);
               setIsListModalOpen(true);

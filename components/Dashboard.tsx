@@ -108,12 +108,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   });
 
-  // 4. Dados por Categoria (Lista com Barras horizontais)
+  // 4. Dados por Categoria (Lista com Barras horizontais) - Contemplando transações normais e de cartão de crédito
   const categoryMap = new Map<string, number>();
-  transactions
-    .filter(t => t.type !== TransactionType.INCOME)
+  const targetDate = new Date(filter.year, filter.month, 1);
+
+  // 4.1. Despesas normais (EXPENSE) reais, ignorando as virtuais de fatura
+  allTransactions
+    .filter(t => t.type === TransactionType.EXPENSE && !t.isVirtual && isSameMonth(parseLocalDate(t.date), targetDate))
     .forEach(t => {
       categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + t.amount);
+    });
+
+  // 4.2. Despesas de cartão de crédito (CARD_EXPENSE) cujas faturas fecham no mês filtrado
+  allTransactions
+    .filter(t => t.type === TransactionType.CARD_EXPENSE && t.cardId)
+    .forEach(t => {
+      const card = cards.find(c => c.id === t.cardId);
+      if (card) {
+        const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+        if (isSameMonth(invoiceDate, targetDate)) {
+          categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + t.amount);
+        }
+      }
     });
   
   const totalExpense = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0);
