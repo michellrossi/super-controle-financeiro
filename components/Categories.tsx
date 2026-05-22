@@ -100,7 +100,9 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
     }
   };
 
-  const filteredCategories = categories.filter(c => c.type === activeTab);
+  const filteredCategories = categories
+    .filter(c => c.type === activeTab)
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
 
   return (
     <div className="space-y-6 animate-fade-in w-full max-w-4xl mx-auto pb-12">
