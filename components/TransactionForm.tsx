@@ -46,8 +46,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     }
   }, [initialData, isOpen, cards]);
 
-  const incomeCategories = categoriesList.filter(c => c.type === TransactionType.INCOME).map(c => c.name);
-  const expenseCategories = categoriesList.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name);
+  const incomeCategories = categoriesList
+    .filter(c => c.type === TransactionType.INCOME)
+    .map(c => c.name)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+
+  const expenseCategories = categoriesList
+    .filter(c => c.type === TransactionType.EXPENSE)
+    .map(c => c.name)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
 
   const resetForm = () => {
     setDescription('');
