@@ -54,7 +54,7 @@ export const AIService = {
     try {
       console.log("Enviando prompt para Gemini...");
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: `Você é um assistente financeiro especialista. Analise o texto do extrato bancário/fatura e extraia as transações.
         
         Categorias de Entrada (INCOME) permitidas: ${incomeCats.join(", ")}.
@@ -143,7 +143,7 @@ export const AIService = {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: `Você é um consultor financeiro pessoal (financial planner) experiente e amigável.
         Analise a saúde financeira do usuário para o mês de ${currentMonthName}.
         
