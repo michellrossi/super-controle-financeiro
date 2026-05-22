@@ -1,8 +1,8 @@
 import React from 'react';
-import { Transaction, CreditCard, TransactionType, TransactionStatus, FilterState } from '../types';
+import { Transaction, CreditCard, TransactionType, TransactionStatus, FilterState, Budget } from '../types';
 import { formatCurrency, getInvoiceMonth } from '../services/storage';
 import { parseLocalDate } from '../utils/date';
-import { TrendingUp, TrendingDown, Wallet, CreditCard as CreditCardIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, CreditCard as CreditCardIcon, Sparkles } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar
@@ -17,9 +17,31 @@ interface DashboardProps {
   cards: CreditCard[];
   filter: FilterState;
   onViewDetails: (type: 'INCOME' | 'EXPENSE' | 'BALANCE') => void;
+  budgets: Budget[];
+  onSaveBudget: (category: string, limit: number) => Promise<void>;
+  onOpenAIReport: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, filter, cards, onViewDetails }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  transactions, 
+  allTransactions, 
+  filter, 
+  cards, 
+  onViewDetails,
+  budgets,
+  onSaveBudget,
+  onOpenAIReport
+}) => {
+  const handleSetBudgetPrompt = async (categoryName: string, currentLimit?: number) => {
+    const res = window.prompt(`Defina o limite mensal de gastos para a categoria "${categoryName}":`, currentLimit ? currentLimit.toString() : '');
+    if (res === null) return;
+    const limitNum = parseFloat(res);
+    if (isNaN(limitNum) || limitNum <= 0) {
+      alert("Por favor, insira um valor numérico válido maior que zero.");
+      return;
+    }
+    await onSaveBudget(categoryName, limitNum);
+  };
   // 1. Cálculos de Sumário
   const income = transactions
     .filter(t => t.type === TransactionType.INCOME)
@@ -122,6 +144,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
 
   return (
     <div className="space-y-6 animate-fade-in w-full">
+      {/* Card Especial de Inteligência Artificial */}
+      <div className="bg-gradient-to-r from-indigo-900 to-indigo-800 rounded-3xl p-6 shadow-xl border border-indigo-950 text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+         <div className="flex items-start gap-4">
+            <div className="p-3 bg-white/10 rounded-2xl border border-white/10 text-white flex items-center justify-center shrink-0 shadow-lg shadow-indigo-950/20">
+               <Sparkles size={28} className="text-indigo-200 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+               <h4 className="font-extrabold text-lg tracking-tight">Análise de Saúde Financeira com IA</h4>
+               <p className="text-indigo-200 text-xs font-medium max-w-lg leading-relaxed">
+                 Deseja receber sugestões e insights detalhados de gastos, comparativos com o mês anterior e projeção da cobertura de suas reservas por inteligência artificial?
+               </p>
+            </div>
+         </div>
+         <button
+            onClick={onOpenAIReport}
+            className="w-full md:w-auto px-6 py-3 bg-white text-indigo-900 font-bold rounded-xl hover:bg-indigo-50 transition-all shadow-lg shadow-indigo-950/30 flex items-center justify-center gap-2 text-sm shrink-0 active:scale-95"
+         >
+            <Sparkles size={16} className="text-indigo-600" /> Analisar Meu Mês
+         </button>
+      </div>
+
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard title="Receitas Recebidas" value={income - incomePending} sub={`Pendente: ${formatCurrency(incomePending)}`} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" borderColor="border-emerald-100" onClick={() => onViewDetails('INCOME')} />
@@ -154,31 +198,84 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransacti
         {/* Lista de Categorias (Estilo solicitado anteriormente) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0">
            <h3 className="text-lg font-bold text-slate-800 mb-6">Gastos por Categoria</h3>
-           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
               {categoryData.length > 0 ? (
                 <div className="space-y-6">
-                  {categoryData.map((item, idx) => (
-                    <div key={item.name} className="space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2">
-                          <CategoryIcon category={item.name} size={18} />
-                          <span className="font-semibold text-slate-700">{item.name}</span>
+                  {categoryData.map((item, idx) => {
+                    const budget = budgets.find(b => b.category === item.name);
+                    const budgetLimit = budget ? budget.limit : 0;
+                    const hasBudget = budgetLimit > 0;
+                    const budgetPercent = hasBudget ? (item.value / budgetLimit) * 100 : 0;
+                    
+                    let progressBarColor = COLORS[idx % COLORS.length];
+                    let badgeColor = "bg-slate-100 text-slate-500";
+                    let widthPercent = item.percent;
+
+                    if (hasBudget) {
+                      widthPercent = Math.min(budgetPercent, 100).toFixed(1);
+                      if (budgetPercent <= 80) {
+                        progressBarColor = "#10B981"; // Emerald
+                        badgeColor = "bg-emerald-50 text-emerald-700 border border-emerald-100";
+                      } else if (budgetPercent <= 100) {
+                        progressBarColor = "#F59E0B"; // Amber
+                        badgeColor = "bg-amber-50 text-amber-700 border border-amber-100";
+                      } else {
+                        progressBarColor = "#EF4444"; // Red
+                        badgeColor = "bg-rose-50 text-rose-700 border border-rose-100 animate-pulse";
+                      }
+                    }
+
+                    return (
+                      <div key={item.name} className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <CategoryIcon category={item.name} size={18} />
+                            <span className="font-semibold text-slate-700">{item.name}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-slate-900">{formatCurrency(item.value)}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{item.percent}%</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900">{formatCurrency(item.value)}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{item.percent}%</span>
+                        
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${widthPercent}%`, backgroundColor: progressBarColor }} />
+                        </div>
+
+                        {/* Budget Info */}
+                        <div className="flex justify-between items-center text-[11px] px-0.5">
+                          {hasBudget ? (
+                            <>
+                              <span className="text-slate-400 font-medium">
+                                Gasto de <span className="font-bold text-slate-500">{formatCurrency(budgetLimit)}</span>
+                              </span>
+                              <button 
+                                onClick={() => handleSetBudgetPrompt(item.name, budgetLimit)}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all hover:scale-105 ${badgeColor}`}
+                              >
+                                {budgetPercent > 100 ? 'Orçamento Estourado!' : `${budgetPercent.toFixed(0)}% consumido`}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-slate-400 font-medium">Sem orçamento</span>
+                              <button
+                                onClick={() => handleSetBudgetPrompt(item.name)}
+                                className="text-[9px] font-bold text-emerald-600 hover:text-emerald-800 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-all"
+                              >
+                                + Definir Limite
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.percent}%`, backgroundColor: COLORS[idx % COLORS.length] }} />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados</div>
               )}
-           </div>
+            </div>
         </div>
       </div>
 

@@ -42,7 +42,22 @@ export interface User {
   avatar?: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'INCOMES' | 'EXPENSES' | 'CARDS' | 'DEBTS';
+export interface Category {
+  id: string;
+  name: string;
+  type: TransactionType.INCOME | TransactionType.EXPENSE;
+  userId: string;
+  emoji?: string;
+}
+
+export interface Budget {
+  id: string;
+  category: string;
+  limit: number;
+  userId: string;
+}
+
+export type ViewState = 'DASHBOARD' | 'INCOMES' | 'EXPENSES' | 'CARDS' | 'DEBTS' | 'CATEGORIES';
 
 export interface FilterState {
   month: number;

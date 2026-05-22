@@ -1,5 +1,50 @@
-import { Transaction, CreditCard, TransactionType, TransactionStatus, User, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from '../types';
+import { Transaction, CreditCard, TransactionType, TransactionStatus, User, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt, Category, Budget } from '../types';
 import { parseLocalDate, toDateString } from '../utils/date';
+
+export const getEmojiForCategoryName = (categoryName: string): string => {
+  switch (categoryName) {
+    // Despesas
+    case 'Alimentação': return '🍔';
+    case 'Apê':
+    case 'Moradia': return '🏠';
+    case 'Assinatura': return '📱';
+    case 'Besteira': return '🍕';
+    case 'Carro':
+    case 'Transporte': return '🚗';
+    case 'Comemoração': return '🥳';
+    case 'Educação':
+    case 'Estudo': return '📚';
+    case 'Farmácia':
+    case 'Saúde': return '💊';
+    case 'Ifood': return '🥡';
+    case 'Investimento': return '📈';
+    case 'Lazer': return '🎮';
+    case 'Mercado':
+    case 'Compra': return '🛍️';
+    case 'Pessoal':
+    case 'Lucas': return '👤';
+    case 'Presente': return '🎁';
+    case 'Viagem': return '✈️';
+    case 'Vestuário': return '👕';
+    case 'Serviço': return '💡';
+    case 'Imposto': return '📋';
+    case 'Doação e Oferta': return '🙌';
+    case 'Pet': return '🐾';
+    
+    // Receitas
+    case 'Salário': return '💰';
+    case 'Bonificação':
+    case '13°': return '🧧';
+    case 'Empréstimo': return '🤝';
+    case 'Vale Alimentação':
+    case 'Vale Refeição': return '🍱';
+    case 'Saldo Anterior': return '🔙';
+    case 'ISK': return '💼';
+    case 'Periculosidade': return '⚠️';
+    
+    default: return '🏷️';
+  }
+};
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { 
@@ -323,5 +368,93 @@ export const StorageService = {
 
   deleteDebt: async (userId: string, id: string) => {
     await deleteDoc(doc(db, "debts", id));
+  },
+
+  // --- Categories ---
+
+  getCategories: async (userId: string): Promise<Category[]> => {
+    const q = query(collection(db, "categories"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      // Seed default categories
+      const batch = writeBatch(db);
+      const seededCategories: Category[] = [];
+
+      INCOME_CATEGORIES.forEach(name => {
+        const ref = doc(collection(db, "categories"));
+        const cat: Category = { id: ref.id, name, type: TransactionType.INCOME, userId, emoji: getEmojiForCategoryName(name) };
+        batch.set(ref, { name, type: TransactionType.INCOME, userId, emoji: cat.emoji });
+        seededCategories.push(cat);
+      });
+
+      EXPENSE_CATEGORIES.forEach(name => {
+        const ref = doc(collection(db, "categories"));
+        const cat: Category = { id: ref.id, name, type: TransactionType.EXPENSE, userId, emoji: getEmojiForCategoryName(name) };
+        batch.set(ref, { name, type: TransactionType.EXPENSE, userId, emoji: cat.emoji });
+        seededCategories.push(cat);
+      });
+
+      await batch.commit();
+      return seededCategories;
+    }
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  },
+
+  addCategory: async (userId: string, c: Omit<Category, 'id' | 'userId'>) => {
+    const ref = doc(collection(db, "categories"));
+    const payload = cleanPayload({ ...c, userId });
+    await addDoc(collection(db, "categories"), payload);
+    return { id: ref.id, ...payload } as Category;
+  },
+
+  updateCategory: async (userId: string, categoryId: string, c: Partial<Category>) => {
+    const ref = doc(db, "categories", categoryId);
+    const payload = cleanPayload(c);
+    await updateDoc(ref, payload);
+  },
+
+  deleteCategory: async (userId: string, categoryId: string) => {
+    await deleteDoc(doc(db, "categories", categoryId));
+  },
+
+  updateCategoryAndTransactions: async (userId: string, categoryId: string, oldName: string, newName: string, newEmoji: string) => {
+    const batch = writeBatch(db);
+    const catRef = doc(db, "categories", categoryId);
+    batch.update(catRef, { name: newName, emoji: newEmoji });
+
+    const q = query(collection(db, "transactions"), where("userId", "==", userId), where("category", "==", oldName));
+    const txSnapshot = await getDocs(q);
+    txSnapshot.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, { category: newName });
+    });
+
+    await batch.commit();
+  },
+
+  // --- Budgets ---
+
+  getBudgets: async (userId: string): Promise<Budget[]> => {
+    const q = query(collection(db, "budgets"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Budget));
+  },
+
+  saveBudget: async (userId: string, category: string, limit: number): Promise<void> => {
+    const q = query(
+      collection(db, "budgets"), 
+      where("userId", "==", userId), 
+      where("category", "==", category)
+    );
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const budgetDoc = querySnapshot.docs[0];
+      await updateDoc(doc(db, "budgets", budgetDoc.id), { limit });
+    } else {
+      await addDoc(collection(db, "budgets"), { category, limit, userId });
+    }
+  },
+
+  deleteBudget: async (userId: string, budgetId: string) => {
+    await deleteDoc(doc(db, "budgets", budgetId));
   }
 };

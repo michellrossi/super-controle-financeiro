@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, TransactionType, TransactionStatus, INCOME_CATEGORIES, EXPENSE_CATEGORIES, CreditCard } from '../types';
+import { Transaction, TransactionType, TransactionStatus, Category, CreditCard } from '../types';
 import { DollarSign, Type, Layers } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { CategoryIcon } from './CategoryIcon';
@@ -10,9 +10,10 @@ interface TransactionFormProps {
   onSubmit: (t: Transaction, installments: number, amountType: 'total' | 'installment') => void;
   initialData?: Transaction | null;
   cards: CreditCard[];
+  categoriesList: Category[];
 }
 
-export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClose, onSubmit, initialData, cards }) => {
+export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClose, onSubmit, initialData, cards, categoriesList }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -45,12 +46,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     }
   }, [initialData, isOpen, cards]);
 
+  const incomeCategories = categoriesList.filter(c => c.type === TransactionType.INCOME).map(c => c.name);
+  const expenseCategories = categoriesList.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name);
+
   const resetForm = () => {
     setDescription('');
     setAmount('');
     setDate(new Date().toISOString().split('T')[0]);
     setType(TransactionType.EXPENSE);
-    setCategory(EXPENSE_CATEGORIES[0]);
+    setCategory(expenseCategories[0] || '');
     setCardId(cards.length > 0 ? cards[0].id : '');
     setStatus(TransactionStatus.COMPLETED);
     setInstallments(1);
@@ -60,9 +64,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
   const handleTypeChange = (newType: TransactionType) => {
       setType(newType);
       if (newType === TransactionType.INCOME) {
-          setCategory(INCOME_CATEGORIES[0]);
+          setCategory(incomeCategories[0] || '');
       } else {
-          setCategory(EXPENSE_CATEGORIES[0]);
+          setCategory(expenseCategories[0] || '');
       }
       if (newType === TransactionType.CARD_EXPENSE && !cardId && cards.length > 0) {
           setCardId(cards[0].id);
@@ -100,7 +104,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ isOpen, onClos
     onClose();
   };
 
-  const categories = type === TransactionType.INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categories = type === TransactionType.INCOME ? incomeCategories : expenseCategories;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Editar Transação' : 'Nova Transação'}>

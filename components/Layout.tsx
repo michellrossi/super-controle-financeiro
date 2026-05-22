@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewState, User } from '../types';
-import { LayoutDashboard, CircleArrowUp, CircleArrowDown, CreditCard, LogOut, TrendingDown } from 'lucide-react';
+import { LayoutDashboard, CircleArrowUp, CircleArrowDown, CreditCard, LogOut, TrendingDown, Tags } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -47,6 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, 
           <NavIcon view="EXPENSES" icon={CircleArrowDown} tooltip="Saídas" />
           <NavIcon view="CARDS" icon={CreditCard} tooltip="Cartões" />
           <NavIcon view="DEBTS" icon={TrendingDown} tooltip="Dívidas" />
+          <NavIcon view="CATEGORIES" icon={Tags} tooltip="Categorias & Orçamentos" />
         </nav>
 
         <div className="absolute bottom-8 flex flex-col gap-4 items-center w-full">
@@ -71,13 +72,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, 
 
       {/* Mobile Fixed Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-         <div className="flex justify-around items-center h-16">
+          <div className="flex justify-around items-center h-16">
             <NavIcon view="DASHBOARD" icon={LayoutDashboard} tooltip="Visão" mobile />
             <NavIcon view="INCOMES" icon={CircleArrowUp} tooltip="Entradas" mobile />
             <NavIcon view="EXPENSES" icon={CircleArrowDown} tooltip="Saídas" mobile />
             <NavIcon view="CARDS" icon={CreditCard} tooltip="Cartões" mobile />
             <NavIcon view="DEBTS" icon={TrendingDown} tooltip="Dívidas" mobile />
-         </div>
+            <NavIcon view="CATEGORIES" icon={Tags} tooltip="Categorias" mobile />
+          </div>
       </div>
     </div>
   );

@@ -4,14 +4,18 @@ import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
 import { CardsView } from './components/Cards';
 import { DebtsView } from './components/Debts';
+import { CategoriesView } from './components/Categories';
+import { AIHealthReportModal } from './components/AIHealthReportModal';
+import { AIImportModal } from './components/AIImportModal';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionListModal } from './components/TransactionListModal';
 import { CardForm } from './components/CardForm';
 import { DebtForm } from './components/DebtForm';
 import { DebtDetailsModal } from './components/DebtDetailsModal';
 import { StorageService, generateInstallments, getInvoiceMonth } from './services/storage';
-import { User, Transaction, ViewState, FilterState, CreditCard, TransactionType, TransactionStatus, INCOME_CATEGORIES, EXPENSE_CATEGORIES, Debt } from './types';
-import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut } from 'lucide-react';
+import { AIService } from './services/ai';
+import { User, Transaction, ViewState, FilterState, CreditCard, TransactionType, TransactionStatus, Debt, Category, Budget } from './types';
+import { Plus, ChevronLeft, ChevronRight, Loader2, LogOut, Sparkles } from 'lucide-react';
 import { format, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate, toDateString } from './utils/date';
@@ -28,6 +32,8 @@ function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
 
   // UX State - Transaction Form
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -47,6 +53,15 @@ function App() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [listModalTitle, setListModalTitle] = useState('');
   const [listModalTransactions, setListModalTransactions] = useState<Transaction[]>([]);
+
+  // UX State - AI Import
+  const [isAIImportOpen, setIsAIImportOpen] = useState(false);
+
+  // UX State - AI Health Report
+  const [isAIReportOpen, setIsAIReportOpen] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   const [filter, setFilter] = useState<FilterState>({
     month: new Date().getMonth(),
@@ -102,14 +117,18 @@ function App() {
   const fetchData = async (userId: string) => {
     setLoading(true);
     try {
-      const [txs, cds, dts] = await Promise.all([
+      const [txs, cds, dts, cats, bgts] = await Promise.all([
         StorageService.getTransactions(userId),
         StorageService.getCards(userId),
-        StorageService.getDebts(userId)
+        StorageService.getDebts(userId),
+        StorageService.getCategories(userId),
+        StorageService.getBudgets(userId)
       ]);
       setTransactions(txs);
       setCards(cds);
       setDebts(dts);
+      setCategories(cats);
+      setBudgets(bgts);
     } catch (e) {
       console.error(e);
     } finally {
@@ -225,16 +244,21 @@ function App() {
   const handleOpenNewTransaction = () => {
       // Determine default type based on current view
       let defaultType = TransactionType.EXPENSE;
-      let defaultCategory = EXPENSE_CATEGORIES[0];
+      let defaultCategory = '';
       let defaultCardId = undefined;
+
+      const incomeCats = categories.filter(c => c.type === TransactionType.INCOME).map(c => c.name);
+      const expenseCats = categories.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name);
 
       if (currentView === 'INCOMES') {
           defaultType = TransactionType.INCOME;
-          defaultCategory = INCOME_CATEGORIES[0];
+          defaultCategory = incomeCats[0] || '';
       } else if (currentView === 'CARDS') {
           defaultType = TransactionType.CARD_EXPENSE;
-          defaultCategory = EXPENSE_CATEGORIES[0];
+          defaultCategory = expenseCats[0] || '';
           if (cards.length > 0) defaultCardId = cards[0].id;
+      } else {
+          defaultCategory = expenseCats[0] || '';
       }
 
       setEditingTransaction({
@@ -582,6 +606,196 @@ function App() {
     });
   };
 
+  // --- AI Report Handler ---
+  const handleOpenAIReport = async () => {
+    if (!user) return;
+    setIsAIReportOpen(true);
+    setReportLoading(true);
+    setReportError('');
+    setReportText('');
+
+    try {
+      const targetDate = new Date(filter.year, filter.month, 1);
+      const prevMonthDate = new Date(filter.year, filter.month - 1, 1);
+
+      const currentMonthTransactions = transactions.filter(t => {
+        if (t.type === TransactionType.CARD_EXPENSE) {
+          const card = cards.find(c => c.id === t.cardId);
+          if (card) {
+            const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+            return isSameMonth(invoiceDate, targetDate);
+          }
+          return false;
+        }
+        return isSameMonth(parseLocalDate(t.date), targetDate);
+      });
+
+      const prevMonthTransactions = transactions.filter(t => {
+        if (t.type === TransactionType.CARD_EXPENSE) {
+          const card = cards.find(c => c.id === t.cardId);
+          if (card) {
+            const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+            return isSameMonth(invoiceDate, prevMonthDate);
+          }
+          return false;
+        }
+        return isSameMonth(parseLocalDate(t.date), prevMonthDate);
+      });
+
+      const currentIncome = currentMonthTransactions
+        .filter(t => t.type === TransactionType.INCOME)
+        .reduce((sum, t) => sum + t.amount, 0);
+      const currentExpense = currentMonthTransactions
+        .filter(t => t.type !== TransactionType.INCOME)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const prevIncome = prevMonthTransactions
+        .filter(t => t.type === TransactionType.INCOME)
+        .reduce((sum, t) => sum + t.amount, 0);
+      const prevExpense = prevMonthTransactions
+        .filter(t => t.type !== TransactionType.INCOME)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const catMapCurrent = new Map<string, number>();
+      currentMonthTransactions
+        .filter(t => t.type !== TransactionType.INCOME)
+        .forEach(t => {
+          catMapCurrent.set(t.category, (catMapCurrent.get(t.category) || 0) + t.amount);
+        });
+      const categoryCurrent = Array.from(catMapCurrent.entries()).map(([name, value]) => ({ name, value }));
+
+      const catMapPrev = new Map<string, number>();
+      prevMonthTransactions
+        .filter(t => t.type !== TransactionType.INCOME)
+        .forEach(t => {
+          catMapPrev.set(t.category, (catMapPrev.get(t.category) || 0) + t.amount);
+        });
+      const categoryPrev = Array.from(catMapPrev.entries()).map(([name, value]) => ({ name, value }));
+
+      const allIncome = transactions
+        .filter(t => t.type === TransactionType.INCOME && t.status === TransactionStatus.COMPLETED)
+        .reduce((sum, t) => sum + t.amount, 0);
+      const allExpense = transactions
+        .filter(t => t.type !== TransactionType.INCOME && t.status === TransactionStatus.COMPLETED)
+        .reduce((sum, t) => sum + t.amount, 0);
+      const totalSavings = allIncome - allExpense;
+
+      const last3MonthsExpenses: number[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const d = new Date(filter.year, filter.month - i, 1);
+        const mExpenses = transactions.filter(t => {
+          if (t.type === TransactionType.CARD_EXPENSE) {
+            const card = cards.find(c => c.id === t.cardId);
+            if (card) {
+              const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+              return isSameMonth(invoiceDate, d);
+            }
+            return false;
+          }
+          return isSameMonth(parseLocalDate(t.date), d);
+        })
+        .filter(t => t.type !== TransactionType.INCOME)
+        .reduce((sum, t) => sum + t.amount, 0);
+        last3MonthsExpenses.push(mExpenses);
+      }
+      const averageExpense = last3MonthsExpenses.reduce((sum, val) => sum + val, 0) / 3 || currentExpense || 1;
+
+      const currentMonthName = format(targetDate, 'MMMM yyyy', { locale: ptBR });
+
+      const report = await AIService.generateHealthReport(
+        currentMonthName,
+        currentIncome,
+        currentExpense,
+        categoryCurrent,
+        prevIncome,
+        prevExpense,
+        categoryPrev,
+        totalSavings,
+        averageExpense
+      );
+
+      setReportText(report);
+    } catch (err: any) {
+      console.error("Erro ao gerar relatório:", err);
+      setReportError(err.message || "Erro desconhecido ao chamar IA.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // --- Category Handlers ---
+  const handleSaveCategory = async (cat: Omit<Category, 'userId'>) => {
+    if (!user) return;
+    try {
+      if (cat.id) {
+        const oldCat = categories.find(c => c.id === cat.id);
+        if (oldCat && oldCat.name !== cat.name) {
+          await StorageService.updateCategoryAndTransactions(user.id, cat.id, oldCat.name, cat.name, cat.emoji || '🏷️');
+          toast.success('Categoria e transações atualizadas!');
+        } else {
+          await StorageService.updateCategory(user.id, cat.id, { name: cat.name, emoji: cat.emoji });
+          toast.success('Categoria atualizada com sucesso!');
+        }
+      } else {
+        await StorageService.addCategory(user.id, cat);
+        toast.success('Categoria criada com sucesso!');
+      }
+      await fetchData(user.id);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar categoria.');
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (!user) return;
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+    
+    showConfirm({
+      title: 'Excluir Categoria?',
+      message: `Tem certeza que deseja excluir a categoria "${cat.name}"? As transações associadas serão mantidas com essa categoria como texto.`,
+      type: 'danger',
+      confirmLabel: 'Sim, excluir',
+      cancelLabel: 'Cancelar',
+      onConfirm: async () => {
+        try {
+          await StorageService.deleteCategory(user.id, catId);
+          toast.success('Categoria excluída com sucesso!');
+          await fetchData(user.id);
+        } catch (err) {
+          console.error(err);
+          toast.error('Erro ao excluir categoria.');
+        }
+      }
+    });
+  };
+
+  // --- Budget Handlers ---
+  const handleSaveBudget = async (categoryName: string, limit: number) => {
+    if (!user) return;
+    try {
+      await StorageService.saveBudget(user.id, categoryName, limit);
+      toast.success('Orçamento salvo com sucesso!');
+      await fetchData(user.id);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar orçamento.');
+    }
+  };
+
+  const handleDeleteBudget = async (budgetId: string) => {
+    if (!user) return;
+    try {
+      await StorageService.deleteBudget(user.id, budgetId);
+      toast.success('Orçamento removido com sucesso!');
+      await fetchData(user.id);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao remover orçamento.');
+    }
+  };
+
   const changeMonth = (increment: number) => {
     setFilter(prev => {
       let newMonth = prev.month + increment;
@@ -662,6 +876,7 @@ function App() {
   if (currentView === 'EXPENSES') viewTitle = 'Minhas Saídas';
   if (currentView === 'CARDS') viewTitle = 'Meus Cartões';
   if (currentView === 'DEBTS') viewTitle = 'Minhas Dívidas';
+  if (currentView === 'CATEGORIES') viewTitle = 'Minhas Categorias';
 
   // Filter view logic for Income/Expense tabs
   const getFilteredTransactionsForView = () => {
@@ -695,6 +910,17 @@ function App() {
         <div className="flex items-center justify-between md:justify-end gap-3">
            {loading && <Loader2 className="animate-spin text-emerald-500 mr-2" />}
            
+           {/* Importar Fatura com IA */}
+           {currentView === 'CARDS' && (
+             <button
+               onClick={() => setIsAIImportOpen(true)}
+               className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm transition-all active:scale-95 shrink-0"
+             >
+               <Sparkles size={16} className="text-indigo-600 animate-pulse" />
+               <span>Importar Fatura</span>
+             </button>
+           )}
+
            {/* Month Selector */}
            <div className="flex items-center bg-white rounded-xl border border-slate-200 p-1 shadow-sm w-full md:w-auto justify-between md:justify-start">
               <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><ChevronLeft size={20} /></button>
@@ -723,6 +949,9 @@ function App() {
             allTransactions={transactions} // Pass raw txs for history
             filter={filter} 
             cards={cards}
+            budgets={budgets}
+            onSaveBudget={handleSaveBudget}
+            onOpenAIReport={handleOpenAIReport}
             onViewDetails={(type) => { 
               const filteredT = processedTransactions.filter(t => {
                   // For Dashboard stats (which show "Realized"), only show COMPLETED items
@@ -740,6 +969,23 @@ function App() {
               setListModalTransactions(filteredT);
               setIsListModalOpen(true);
             }}
+          />
+        )}
+
+        {currentView === 'CATEGORIES' && (
+          <CategoriesView 
+            categories={categories}
+            budgets={budgets}
+            onAddCategory={async (name, type, emoji) => handleSaveCategory({ id: '', name, type: type as TransactionType.INCOME | TransactionType.EXPENSE, emoji })}
+            onUpdateCategory={async (id, oldName, newName, emoji) => {
+              const cat = categories.find(c => c.id === id);
+              if (cat) {
+                await handleSaveCategory({ id, name: newName, emoji, type: cat.type });
+              }
+            }}
+            onDeleteCategory={handleDeleteCategory}
+            onSaveBudget={handleSaveBudget}
+            onDeleteBudget={handleDeleteBudget}
           />
         )}
         
@@ -824,6 +1070,7 @@ function App() {
         onSubmit={handleTransactionSubmit}
         initialData={editingTransaction}
         cards={cards}
+        categoriesList={categories}
       />
 
       <CardForm 
@@ -878,6 +1125,34 @@ function App() {
         confirmLabel={confirmConfig.confirmLabel}
         cancelLabel={confirmConfig.cancelLabel}
       />
+
+      <AIImportModal
+        isOpen={isAIImportOpen}
+        onClose={() => setIsAIImportOpen(false)}
+        cards={cards}
+        categories={categories}
+        onImport={async (importedTxs) => {
+          if (!user) return;
+          try {
+            await StorageService.addTransactionsBatch(user.id, importedTxs);
+            toast.success('Transações importadas com sucesso!');
+            await fetchData(user.id);
+          } catch (err) {
+            console.error(err);
+            toast.error('Erro ao importar transações.');
+          }
+        }}
+      />
+
+      <AIHealthReportModal
+        isOpen={isAIReportOpen}
+        onClose={() => setIsAIReportOpen(false)}
+        reportText={reportText}
+        loading={reportLoading}
+        error={reportError}
+        onGenerate={handleOpenAIReport}
+      />
+
       <Toaster position="top-right" />
     </Layout>
   );

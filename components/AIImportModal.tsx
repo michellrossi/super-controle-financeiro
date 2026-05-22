@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from './ui/Modal';
-import { CreditCard, Transaction, TransactionType, TransactionStatus } from '../types';
+import { CreditCard, Transaction, TransactionType, TransactionStatus, Category } from '../types';
 import { AIService, AIParsedTransaction } from '../services/ai';
 import { Sparkles, Loader2, CheckCircle, AlertCircle, ArrowUp, ArrowDown, Key } from 'lucide-react';
 import { formatCurrency } from '../services/storage';
@@ -9,10 +9,11 @@ interface AIImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   cards: CreditCard[];
+  categories: Category[];
   onImport: (transactions: Transaction[]) => void;
 }
 
-export const AIImportModal: React.FC<AIImportModalProps> = ({ isOpen, onClose, cards, onImport }) => {
+export const AIImportModal: React.FC<AIImportModalProps> = ({ isOpen, onClose, cards, categories, onImport }) => {
   const [step, setStep] = useState<'INPUT' | 'PREVIEW'>('INPUT');
   const [text, setText] = useState('');
   const [selectedCardId, setSelectedCardId] = useState('');
@@ -69,7 +70,9 @@ export const AIImportModal: React.FC<AIImportModalProps> = ({ isOpen, onClose, c
     setNeedsApiKey(false);
     
     try {
-      const results = await AIService.parseStatement(text);
+      const incomeCats = categories.filter(c => c.type === TransactionType.INCOME).map(c => c.name);
+      const expenseCats = categories.filter(c => c.type === TransactionType.EXPENSE).map(c => c.name);
+      const results = await AIService.parseStatement(text, incomeCats, expenseCats);
       console.log("Resultados parseados:", results);
       if (results.length === 0) {
         setError('Nenhuma transação identificada. Verifique o texto copiado.');
