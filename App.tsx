@@ -153,7 +153,7 @@ function App() {
         const card = cards.find(c => c.id === t.cardId);
         if (card) {
           // Calculate which invoice this transaction belongs to
-          const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+          const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
           
           // If this invoice belongs to the currently filtered month, add to total
           if (isSameMonth(invoiceDate, targetDate)) {
@@ -418,7 +418,7 @@ function App() {
 
       const txsToUpdate = transactions.filter(t => {
         if (t.type !== TransactionType.CARD_EXPENSE || t.cardId !== virtualTx.cardId) return false;
-        const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+        const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
         return isSameMonth(invoiceDate, targetDate);
       });
       
@@ -622,7 +622,7 @@ function App() {
         if (t.type === TransactionType.CARD_EXPENSE) {
           const card = cards.find(c => c.id === t.cardId);
           if (card) {
-            const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+            const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
             return isSameMonth(invoiceDate, targetDate);
           }
           return false;
@@ -634,7 +634,7 @@ function App() {
         if (t.type === TransactionType.CARD_EXPENSE) {
           const card = cards.find(c => c.id === t.cardId);
           if (card) {
-            const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+            const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
             return isSameMonth(invoiceDate, prevMonthDate);
           }
           return false;
@@ -687,7 +687,7 @@ function App() {
           if (t.type === TransactionType.CARD_EXPENSE) {
             const card = cards.find(c => c.id === t.cardId);
             if (card) {
-              const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+              const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
               return isSameMonth(invoiceDate, d);
             }
             return false;
@@ -997,7 +997,7 @@ function App() {
                 .forEach(t => {
                   const card = cards.find(c => c.id === t.cardId);
                   if (card) {
-                    const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+                    const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
                     if (isSameMonth(invoiceDate, targetDate)) {
                       cardTxs.push(t);
                     }
@@ -1062,7 +1062,7 @@ function App() {
               const targetDate = new Date(filter.year, filter.month, 1);
               const cardTx = transactions.filter(t => 
                 t.cardId === cardId && 
-                isSameMonth(getInvoiceMonth(parseLocalDate(t.date), card.closingDay), targetDate)
+                isSameMonth(getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay), targetDate)
               );
               setListModalTitle(`Fatura: ${card.name}`);
               // Show ALL transactions for the invoice (Pending + Completed) so user can see what's coming

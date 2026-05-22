@@ -73,7 +73,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         .forEach(t => {
             const card = cards.find(c => c.id === t.cardId);
             if (card) {
-                const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+                const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
                 if (isSameMonth(invoiceDate, d)) monthInvoiceTotal += t.amount;
             }
         });
@@ -98,7 +98,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         .forEach(t => {
             const card = cards.find(c => c.id === t.cardId);
             if (card) {
-                const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+                const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
                 if (isSameMonth(invoiceDate, d)) totalInvoice += t.amount;
             }
         });
@@ -125,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     .forEach(t => {
       const card = cards.find(c => c.id === t.cardId);
       if (card) {
-        const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+        const invoiceDate = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
         if (isSameMonth(invoiceDate, targetDate)) {
           categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + t.amount);
         }

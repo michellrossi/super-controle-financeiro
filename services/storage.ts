@@ -93,10 +93,23 @@ export const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
 
-export const getInvoiceMonth = (date: Date, closingDay: number): Date => {
+export const getInvoiceMonth = (date: Date, closingDay: number, dueDay: number): Date => {
   const d = new Date(date);
-  if (d.getDate() > closingDay) {
-    d.setMonth(d.getMonth() + 1);
+  const m = d.getMonth();
+  const y = d.getFullYear();
+  
+  const closingDateOfThisMonth = new Date(y, m, closingDay, 23, 59, 59);
+  
+  if (closingDay < dueDay) {
+    if (d > closingDateOfThisMonth) {
+      d.setMonth(m + 1);
+    }
+  } else {
+    if (d <= closingDateOfThisMonth) {
+      d.setMonth(m + 1);
+    } else {
+      d.setMonth(m + 2);
+    }
   }
   return d;
 };
@@ -112,7 +125,7 @@ export const getRemainingDebtForMonth = (transactions: Transaction[], card: Cred
     .filter(t => {
       if (t.type !== TransactionType.CARD_EXPENSE || t.cardId !== card.id) return false;
       
-      const invoiceMonth = getInvoiceMonth(parseLocalDate(t.date), card.closingDay);
+      const invoiceMonth = getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay);
       const startOfInvoice = startOfMonth(invoiceMonth);
       
       // O saldo devedor no mês X é a soma de tudo que vence no mês X e nos meses seguintes

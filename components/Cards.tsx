@@ -32,7 +32,7 @@ export const CardsView: React.FC<CardsProps> = ({
             .filter(t => 
               t.type === TransactionType.CARD_EXPENSE && 
               t.cardId === card.id &&
-              isSameMonth(getInvoiceMonth(parseLocalDate(t.date), card.closingDay), targetDate)
+              isSameMonth(getInvoiceMonth(parseLocalDate(t.date), card.closingDay, card.dueDay), targetDate)
             )
             .reduce((acc, t) => acc + t.amount, 0);
 
