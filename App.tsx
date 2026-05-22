@@ -969,6 +969,14 @@ function App() {
               setListModalTransactions(filteredT);
               setIsListModalOpen(true);
             }}
+            onCategoryClick={(categoryName) => {
+              const filteredT = processedTransactions.filter(t => 
+                t.type !== TransactionType.INCOME && t.category === categoryName
+              );
+              setListModalTitle(`Gastos: ${categoryName}`);
+              setListModalTransactions(filteredT);
+              setIsListModalOpen(true);
+            }}
           />
         )}
 

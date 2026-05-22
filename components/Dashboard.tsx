@@ -20,6 +20,7 @@ interface DashboardProps {
   budgets: Budget[];
   onSaveBudget: (category: string, limit: number) => Promise<void>;
   onOpenAIReport: () => void;
+  onCategoryClick: (categoryName: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -30,7 +31,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onViewDetails,
   budgets,
   onSaveBudget,
-  onOpenAIReport
+  onOpenAIReport,
+  onCategoryClick
 }) => {
   const handleSetBudgetPrompt = async (categoryName: string, currentLimit?: number) => {
     const res = window.prompt(`Defina o limite mensal de gastos para a categoria "${categoryName}":`, currentLimit ? currentLimit.toString() : '');
@@ -226,20 +228,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     }
 
                     return (
-                      <div key={item.name} className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <CategoryIcon category={item.name} size={18} />
-                            <span className="font-semibold text-slate-700">{item.name}</span>
+                      <div key={item.name} className="space-y-2 p-2 hover:bg-slate-50/80 rounded-xl transition-all duration-200">
+                        <div 
+                          className="space-y-2 cursor-pointer group/item" 
+                          onClick={() => onCategoryClick(item.name)}
+                          title="Clique para ver transações desta categoria"
+                        >
+                          <div className="flex justify-between items-center text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className="transition-transform group-hover/item:scale-110 duration-200">
+                                <CategoryIcon category={item.name} size={18} />
+                              </div>
+                              <span className="font-semibold text-slate-700 group-hover/item:text-indigo-600 transition-colors duration-200">{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-slate-900 group-hover/item:text-indigo-600 transition-colors duration-200">{formatCurrency(item.value)}</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 group-hover/item:bg-indigo-50 group-hover/item:text-indigo-600 transition-all duration-200">{item.percent}%</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-slate-900">{formatCurrency(item.value)}</span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{item.percent}%</span>
+                          
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500 group-hover/item:opacity-90" style={{ width: `${widthPercent}%`, backgroundColor: progressBarColor }} />
                           </div>
-                        </div>
-                        
-                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${widthPercent}%`, backgroundColor: progressBarColor }} />
                         </div>
 
                         {/* Budget Info */}
