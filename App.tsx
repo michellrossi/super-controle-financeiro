@@ -910,6 +910,17 @@ function App() {
         <div className="flex items-center justify-between md:justify-end gap-3">
            {loading && <Loader2 className="animate-spin text-emerald-500 mr-2" />}
            
+           {/* Analisar Mês com IA */}
+           {currentView === 'DASHBOARD' && (
+             <button
+               onClick={handleOpenAIReport}
+               className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm transition-all active:scale-95 shrink-0"
+             >
+               <Sparkles size={16} className="text-indigo-600 animate-pulse" />
+               <span>Análise com IA</span>
+             </button>
+           )}
+
            {/* Importar Fatura com IA */}
            {currentView === 'CARDS' && (
              <button
@@ -951,7 +962,6 @@ function App() {
             cards={cards}
             budgets={budgets}
             onSaveBudget={handleSaveBudget}
-            onOpenAIReport={handleOpenAIReport}
             onViewDetails={(type) => { 
               const filteredT = processedTransactions.filter(t => {
                   // For Dashboard stats (which show "Realized"), only show COMPLETED items

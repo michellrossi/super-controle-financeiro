@@ -19,7 +19,6 @@ interface DashboardProps {
   onViewDetails: (type: 'INCOME' | 'EXPENSE' | 'BALANCE') => void;
   budgets: Budget[];
   onSaveBudget: (category: string, limit: number) => Promise<void>;
-  onOpenAIReport: () => void;
   onCategoryClick: (categoryName: string) => void;
 }
 
@@ -31,7 +30,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onViewDetails,
   budgets,
   onSaveBudget,
-  onOpenAIReport,
   onCategoryClick
 }) => {
   const handleSetBudgetPrompt = async (categoryName: string, currentLimit?: number) => {
@@ -146,28 +144,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in w-full">
-      {/* Card Especial de Inteligência Artificial */}
-      <div className="bg-gradient-to-r from-indigo-900 to-indigo-800 rounded-3xl p-6 shadow-xl border border-indigo-950 text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-         <div className="flex items-start gap-4">
-            <div className="p-3 bg-white/10 rounded-2xl border border-white/10 text-white flex items-center justify-center shrink-0 shadow-lg shadow-indigo-950/20">
-               <Sparkles size={28} className="text-indigo-200 animate-pulse" />
-            </div>
-            <div className="space-y-1">
-               <h4 className="font-extrabold text-lg tracking-tight">Análise de Saúde Financeira com IA</h4>
-               <p className="text-indigo-200 text-xs font-medium max-w-lg leading-relaxed">
-                 Deseja receber sugestões e insights detalhados de gastos, comparativos com o mês anterior e projeção da cobertura de suas reservas por inteligência artificial?
-               </p>
-            </div>
-         </div>
-         <button
-            onClick={onOpenAIReport}
-            className="w-full md:w-auto px-6 py-3 bg-white text-indigo-900 font-bold rounded-xl hover:bg-indigo-50 transition-all shadow-lg shadow-indigo-950/30 flex items-center justify-center gap-2 text-sm shrink-0 active:scale-95"
-         >
-            <Sparkles size={16} className="text-indigo-600" /> Analisar Meu Mês
-         </button>
-      </div>
-
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard title="Receitas Recebidas" value={income - incomePending} sub={`Pendente: ${formatCurrency(incomePending)}`} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" borderColor="border-emerald-100" onClick={() => onViewDetails('INCOME')} />
@@ -176,29 +152,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-        {/* Gráfico de Entradas vs Saídas */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0">
-           <h3 className="text-lg font-bold text-slate-800 mb-6">Entradas vs Saídas (6 Meses)</h3>
-           <div className="h-72 w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={historyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.1}/><stop offset="95%" stopColor="#10B981" stopOpacity={0}/></linearGradient>
-                    <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F43F5E" stopOpacity={0.1}/><stop offset="95%" stopColor="#F43F5E" stopOpacity={0}/></linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value: any) => formatCurrency(Number(value))} />
-                  <Area type="monotone" dataKey="Entradas" stroke="#10B981" fillOpacity={1} fill="url(#colorInc)" strokeWidth={3} dot={{r:4, fill:'#10B981'}} />
-                  <Area type="monotone" dataKey="Saidas" stroke="#F43F5E" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} dot={{r:4, fill:'#F43F5E'}} />
-               </AreaChart>
-             </ResponsiveContainer>
-           </div>
+        {/* Coluna da Esquerda: Gráficos (Entradas vs Saídas & Evolução de Faturas) */}
+        <div className="lg:col-span-2 space-y-6 flex flex-col">
+          {/* Gráfico de Entradas vs Saídas */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0">
+             <h3 className="text-lg font-bold text-slate-800 mb-6">Entradas vs Saídas (6 Meses)</h3>
+             <div className="h-72 w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                 <AreaChart data={historyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.1}/><stop offset="95%" stopColor="#10B981" stopOpacity={0}/></linearGradient>
+                      <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F43F5E" stopOpacity={0.1}/><stop offset="95%" stopColor="#F43F5E" stopOpacity={0}/></linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value: any) => formatCurrency(Number(value))} />
+                    <Area type="monotone" dataKey="Entradas" stroke="#10B981" fillOpacity={1} fill="url(#colorInc)" strokeWidth={3} dot={{r:4, fill:'#10B981'}} />
+                    <Area type="monotone" dataKey="Saidas" stroke="#F43F5E" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} dot={{r:4, fill:'#F43F5E'}} />
+                 </AreaChart>
+               </ResponsiveContainer>
+             </div>
+          </div>
+
+          {/* Evolução de Faturas (Recuperado) */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-w-0">
+             <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-100 rounded-lg text-indigo-600"><CreditCardIcon size={18} /></div>
+                    <h3 className="text-lg font-bold text-slate-800">Evolução de Faturas de Cartão</h3>
+                </div>
+             </div>
+             <div className="h-64 w-full">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={cardEvolutionData} barSize={32}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
+                      <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value: any) => formatCurrency(Number(value))} />
+                      <Bar dataKey="Fatura" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                   </BarChart>
+                 </ResponsiveContainer>
+             </div>
+          </div>
         </div>
 
         {/* Lista de Categorias (Estilo solicitado anteriormente) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col min-w-0 h-full">
            <h3 className="text-lg font-bold text-slate-800 mb-6">Gastos por Categoria</h3>
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
               {categoryData.length > 0 ? (
@@ -287,26 +286,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
         </div>
-      </div>
-
-      {/* Evolução de Faturas (Recuperado) */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-w-0 w-full">
-         <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-indigo-100 rounded-lg text-indigo-600"><CreditCardIcon size={18} /></div>
-                <h3 className="text-lg font-bold text-slate-800">Evolução de Faturas de Cartão</h3>
-            </div>
-         </div>
-         <div className="h-64 w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <BarChart data={cardEvolutionData} barSize={32}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
-                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value: any) => formatCurrency(Number(value))} />
-                  <Bar dataKey="Fatura" fill="#6366f1" radius={[4, 4, 0, 0]} />
-               </BarChart>
-             </ResponsiveContainer>
-         </div>
       </div>
     </div>
   );
