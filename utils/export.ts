@@ -23,7 +23,7 @@ export const convertToCSV = (data: any[]): string => {
   
   // Obter todas as chaves exclusivas de todos os objetos
   const headers = Array.from(
-    new Set(data.reduce((acc, obj) => [...acc, ...Object.keys(obj)], [] as string[]))
+    new Set(data.reduce((acc: string[], obj: any) => [...acc, ...Object.keys(obj || {})], [] as string[]))
   );
 
   const csvRows = [];
