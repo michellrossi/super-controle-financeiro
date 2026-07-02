@@ -33,7 +33,10 @@ export const convertToCSV = (data: any[]): string => {
 
   // Adiciona as linhas correspondentes
   for (const row of data) {
-    const values = headers.map(header => formatCSVValue(row[header]));
+    const values = headers.map(header => {
+      const item = row as Record<string, any>;
+      return formatCSVValue(item[header]);
+    });
     csvRows.push(values.join(','));
   }
 
