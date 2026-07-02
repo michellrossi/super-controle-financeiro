@@ -20,6 +20,8 @@ import { format, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate, toDateString } from './utils/date';
 import { ConfirmModal } from './components/ui/ConfirmModal';
+import { DatabaseBackupModal } from './components/DatabaseBackupModal';
+import { Database } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -56,6 +58,9 @@ function App() {
 
   // UX State - AI Import
   const [isAIImportOpen, setIsAIImportOpen] = useState(false);
+
+  // UX State - Backup
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   // UX State - AI Health Report
   const [isAIReportOpen, setIsAIReportOpen] = useState(false);
@@ -951,6 +956,15 @@ function App() {
               <button onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><ChevronRight size={20} /></button>
            </div>
 
+           {/* Backup de Dados */}
+           <button
+             onClick={() => setIsBackupOpen(true)}
+             className="flex items-center justify-center p-2.5 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 rounded-xl text-slate-600 shadow-sm transition-all active:scale-95 shrink-0"
+             title="Backup de Dados (JSON / CSV)"
+           >
+             <Database size={20} />
+           </button>
+
            {/* Mobile Add Button */}
            <div className="md:hidden shrink-0">
                <button 
@@ -1205,6 +1219,16 @@ function App() {
         loading={reportLoading}
         error={reportError}
         onGenerate={handleOpenAIReport}
+      />
+
+      <DatabaseBackupModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+        transactions={transactions}
+        cards={cards}
+        debts={debts}
+        categories={categories}
+        budgets={budgets}
       />
 
       <Toaster position="top-right" />
